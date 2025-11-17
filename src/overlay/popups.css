@@ -1,0 +1,68 @@
+@keyframes fade-in {
+    0% {
+        opacity: 0;
+    }
+
+    100% {
+        opacity: 1;
+    }
+}
+
+#popup-panel {
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: 16vw;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    justify-content: end;
+    padding-right: 16px;
+}
+
+.popup {
+    box-shadow: 0px 0px 8px #00000033;
+    background: linear-gradient(90deg, var(--primary-background), var(--secondary-background));
+    background-origin: border-box;
+    padding: 17px 16px;
+    margin-bottom: 16px;
+    transition: opacity 0.4s;
+    animation: fade-in 0.4s;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 0px;
+    position: relative;
+    isolation: isolate;
+}
+
+.popup::before {
+    content: '';
+    position: absolute;
+    top: 1px;
+    left: 1px;
+    right: 1px;
+    bottom: 1px;
+    background: linear-gradient(90deg, var(--primary-background), var(--secondary-background));
+    z-index: -1;
+    border-radius: 0px;
+}
+
+.popup.fade-out {
+    opacity: 0;
+}
+
+.popup p.title {
+    font-size: 18px;
+    margin-bottom: 6px;
+    color: #fff;
+    font-weight: 500;
+}
+
+.popup p {
+    font-size: 15px;
+    color: #ddd;
+    font-weight: 300;
+}
+
+.popup strong {
+    font-weight: 500;
+}

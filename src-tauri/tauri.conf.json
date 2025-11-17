@@ -1,0 +1,40 @@
+{
+    "build": {
+        "beforeBuildCommand": "yarn build",
+        "beforeDevCommand": "yarn dev",
+        "devPath": "http://localhost:5173",
+        "distDir": "../dist"
+    },
+    "package": {
+        "productName": "groundsub",
+        "version": "../package.json"
+    },
+    "tauri": {
+        "allowlist": {
+            "all": true
+        },
+        "bundle": {
+            "active": true,
+            "category": "Utility",
+            "icon": [
+                "./icons/icon.ico"
+            ],
+            "identifier": "groundsub",
+            "shortDescription": "Modified version of threepole",
+            "targets": [
+                "msi"
+            ],
+            "windows": {
+                "certificateThumbprint": null,
+                "digestAlgorithm": "sha256",
+                "timestampUrl": ""
+            }
+        },
+        "security": {
+            "csp": "default-src 'self' object-src 'none'"
+        },
+        "systemTray": {
+            "iconPath": "./icons/icon.ico"
+        }
+    }
+}
