@@ -6,6 +6,7 @@ import type { TauriEvent, Preferences, CurrentActivity, PlayerDataStatus } from 
 import { emit, listen } from "@tauri-apps/api/event";
 import { countClears, determineActivityType, formatMillis, formatTime } from "../core/util";
 import { getPlayerdata, getPreferences } from "../core/ipc";
+import { THEME_UPDATE_EVENT } from "../core/theme";
 
 const widgetElem = document.querySelector<HTMLElement>("#widget")!;
 const loaderElem = document.querySelector<HTMLElement>("#widget-loader")!;
@@ -89,12 +90,29 @@ async function init() {
         }
     });
 
-    applyPreferences(await getPreferences());
+    const prefs = await getPreferences();
+    applyPreferences(prefs);
+    
+    document.documentElement.style.setProperty('--primary-background', prefs.primaryBackground);
+    document.documentElement.style.setProperty('--secondary-background', prefs.secondaryBackground);
+    document.documentElement.style.setProperty('--primary-highlight', prefs.primaryHighlight);
+    document.documentElement.style.setProperty('--clear-text-color', prefs.clearTextColor || '#ffffff');
+    
     updateTimespanText();
     const initialPlayerData = await getPlayerdata();
     if (initialPlayerData) {
         refresh(initialPlayerData);
     }
+
+    listen<{ primaryBackground: string; secondaryBackground: string; primaryHighlight: string; clearTextColor?: string }>(THEME_UPDATE_EVENT, (event) => {
+        const { primaryBackground, secondaryBackground, primaryHighlight, clearTextColor } = event.payload;
+        document.documentElement.style.setProperty('--primary-background', primaryBackground);
+        document.documentElement.style.setProperty('--secondary-background', secondaryBackground);
+        document.documentElement.style.setProperty('--primary-highlight', primaryHighlight);
+        if (clearTextColor) {
+            document.documentElement.style.setProperty('--clear-text-color', clearTextColor);
+        }
+    });
 
     appWindow.listen("preferences_update", (p: TauriEvent<Preferences>) => applyPreferences(p.payload));
     appWindow.listen("playerdata_update", (e: TauriEvent<PlayerDataStatus>) => refresh(e.payload));
@@ -214,19 +232,20 @@ function refresh(playerDataStatus: PlayerDataStatus) {
 function applyPreferences(p: Preferences) {
     prefs = p;
 
-    document.documentElement.style.setProperty('--primary-background', p.primaryBackground);
-    document.documentElement.style.setProperty('--secondary-background', p.secondaryBackground);
-
-    if (p.displayDailyClears) {
-        counterElem.classList.remove("hidden");
-    } else {
-        counterElem.classList.add("hidden");
+    if (counterElem) {
+        if (p.displayDailyClears) {
+            counterElem.classList.remove("hidden");
+        } else {
+            counterElem.classList.add("hidden");
+        }
     }
-
-    if (p.displayMilliseconds) {
-        msElem.classList.remove("hidden");
-    } else {
-        msElem.classList.add("hidden");
+    
+    if (msElem) {
+        if (p.displayMilliseconds) {
+            msElem.classList.remove("hidden");
+        } else {
+            msElem.classList.add("hidden");
+        }
     }
 
     if (timerInterval) {

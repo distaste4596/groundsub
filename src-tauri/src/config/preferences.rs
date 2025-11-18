@@ -15,6 +15,7 @@ pub struct Preferences {
     pub primary_background: String,
     pub secondary_background: String,
     pub primary_highlight: String,
+    pub clear_text_color: String,
 }
 
 impl Default for Preferences {
@@ -29,6 +30,7 @@ impl Default for Preferences {
             primary_background: "#12171c".to_string(),
             secondary_background: "#180f1c".to_string(),
             primary_highlight: "#74259c".to_string(),
+            clear_text_color: "#ffffff".to_string(),
         }
     }
 }

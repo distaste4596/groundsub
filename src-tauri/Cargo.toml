@@ -1,7 +1,7 @@
 [package]
 name = "app"
 default-run = "app"
-version = "1.0.0"
+version = "1.0.1"
 edition = "2021"
 rust-version = "1.57"
 
@@ -11,7 +11,7 @@ tauri-build = { version = "1.1.1", features = [] }
 [dependencies]
 serde_json = "1.0"
 serde = { version = "1.0", features = ["derive"] }
-tauri = { version = "1.2.4", features = ["api-all", "system-tray"] }
+tauri = { version = "1.2.4", features = [ "updater", "api-all", "system-tray"] }
 windows = { version = "0.44", features = ["Win32_Foundation", "Win32_UI_WindowsAndMessaging", "Win32_System_ProcessStatus", "Win32_System_Threading", "Win32_UI_Shell"] }
 tokio = { version = "1.25", features = ["macros", "time", "sync", "net"] }
 anyhow = "1.0"
@@ -22,6 +22,7 @@ chrono = { version = "0.4", features = ["serde"] }
 raw-window-handle = "0.5"
 async-trait = "0.1"
 itertools = "0.10"
+time = "0.3.34"
 
 [features]
 # by default Tauri runs in production mode

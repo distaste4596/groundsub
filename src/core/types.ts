@@ -35,6 +35,7 @@ export type Preferences = {
     primaryBackground: string;
     secondaryBackground: string;
     primaryHighlight: string;
+    clearTextColor: string;
     filterActivityType: string;
     filterTimespan: string;
 };

@@ -35,6 +35,14 @@
         },
         "systemTray": {
             "iconPath": "./icons/icon.ico"
+        },
+        "updater": {
+            "active": true,
+            "endpoints": [
+                "https://gist.github.com/distaste4596/29a042973ecb8d739ffd9e96c4cb7cca"
+            ],
+            "dialog": true,
+            "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEZCMzlFN0QwQzg3REM3MzYKUldRMngzM0kwT2M1KzlnenAvZDhHd0g3Um9pbjNkcHJDVjBoMVpWaExsN0ZtMzdZeTNLMlQwTkgK"
         }
     }
 }

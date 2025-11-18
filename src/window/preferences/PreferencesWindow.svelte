@@ -48,7 +48,8 @@
             await updateTheme({
                 primaryBackground: originalPreferences.primaryBackground,
                 secondaryBackground: originalPreferences.secondaryBackground,
-                primaryHighlight: originalPreferences.primaryHighlight
+                primaryHighlight: originalPreferences.primaryHighlight,
+                clearTextColor: originalPreferences.clearTextColor
             });
         }
         appWindow.close();
@@ -62,7 +63,8 @@
                 updateTheme({
                     primaryBackground: originalPreferences.primaryBackground,
                     secondaryBackground: originalPreferences.secondaryBackground,
-                    primaryHighlight: originalPreferences.primaryHighlight
+                    primaryHighlight: originalPreferences.primaryHighlight,
+                    clearTextColor: originalPreferences.clearTextColor
                 });
             }
         };
@@ -80,7 +82,8 @@
         await updateTheme({
             primaryBackground: preferences.primaryBackground,
             secondaryBackground: preferences.secondaryBackground,
-            primaryHighlight: preferences.primaryHighlight
+            primaryHighlight: preferences.primaryHighlight,
+            clearTextColor: preferences.clearTextColor
         });
     }
 
@@ -90,7 +93,8 @@
         await updateTheme({
             primaryBackground: preferences.primaryBackground,
             secondaryBackground: preferences.secondaryBackground,
-            primaryHighlight: preferences.primaryHighlight
+            primaryHighlight: preferences.primaryHighlight,
+            clearTextColor: preferences.clearTextColor
         });
     }
 
@@ -100,7 +104,19 @@
         await updateTheme({
             primaryBackground: preferences.primaryBackground,
             secondaryBackground: preferences.secondaryBackground,
-            primaryHighlight: preferences.primaryHighlight
+            primaryHighlight: preferences.primaryHighlight,
+            clearTextColor: preferences.clearTextColor
+        });
+    }
+
+    async function handleClearTextColorChange(event: ColorChangeEvent) {
+        const color = event.detail;
+        preferences.clearTextColor = color;
+        await updateTheme({
+            primaryBackground: preferences.primaryBackground,
+            secondaryBackground: preferences.secondaryBackground,
+            primaryHighlight: preferences.primaryHighlight,
+            clearTextColor: color
         });
     }
 
@@ -108,11 +124,25 @@
         preferences.primaryBackground = '#12171c';
         preferences.secondaryBackground = '#180f1c';
         preferences.primaryHighlight = '#74259c';
+        preferences.clearTextColor = '#ffffff';
         
+        // Force update the theme with all colors including clearTextColor
         await updateTheme({
             primaryBackground: preferences.primaryBackground,
             secondaryBackground: preferences.secondaryBackground,
-            primaryHighlight: preferences.primaryHighlight
+            primaryHighlight: preferences.primaryHighlight,
+            clearTextColor: preferences.clearTextColor
+        });
+        
+        // Force a re-render of the color picker by dispatching an input event
+        const colorPickers = document.querySelectorAll('color-picker');
+        colorPickers.forEach(picker => {
+            if (picker.shadowRoot) {
+                const input = picker.shadowRoot.querySelector('input[type="color"]');
+                if (input) {
+                    input.dispatchEvent(new Event('input', { bubbles: true }));
+                }
+            }
         });
     }
 
@@ -142,7 +172,7 @@
                     <StyledCheckbox
                         bind:checked={preferences.displayDailyClears}
                         disabled={!preferences.enableOverlay}
-                        >Display daily clears</StyledCheckbox
+                        >Display clears count</StyledCheckbox
                     >
                 </div>
                 <div class="preference">
@@ -181,6 +211,13 @@
                             label="Highlight Color"
                             bind:value={preferences.primaryHighlight}
                             on:change={handleHighlightColorChange}
+                        />
+                    </div>
+                    <div class="color-picker-container">
+                        <ColorPickerComponent 
+                            label="Clear Count / Timer Color"
+                            bind:value={preferences.clearTextColor}
+                            on:change={handleClearTextColorChange}
                         />
                     </div>
                 </div>

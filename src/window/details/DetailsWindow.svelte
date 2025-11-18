@@ -16,7 +16,6 @@
         formatTime,
     } from "../../core/util";
     import PreviousRaid from "./PreviousRaid.svelte";
-    import { DISCORD_INVITE, REPOSITORY_LINK } from "../../core/consts";
     import Dot from "./Dot.svelte";
     import Loader from "../widgets/Loader.svelte";
     import * as ipc from "../../core/ipc";

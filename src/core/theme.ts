@@ -1,7 +1,7 @@
 import { getPreferences } from "./ipc";
 import { emit, listen } from "@tauri-apps/api/event";
 
-const THEME_UPDATE_EVENT = 'theme-update';
+export const THEME_UPDATE_EVENT = 'theme-update';
 
 export async function initializeTheme() {
     try {
@@ -31,10 +31,15 @@ function updateCssVariables(prefs: ThemeVariables) {
     root.style.setProperty('--primary-background', prefs.primaryBackground);
     root.style.setProperty('--secondary-background', prefs.secondaryBackground);
     root.style.setProperty('--primary-highlight', prefs.primaryHighlight);
+    
+    if (prefs.clearTextColor) {
+        root.style.setProperty('--clear-text-color', prefs.clearTextColor);
+    }
 }
 
 type ThemeVariables = {
     primaryBackground: string;
     secondaryBackground: string;
     primaryHighlight: string;
+    clearTextColor?: string;
 };
