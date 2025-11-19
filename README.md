@@ -23,7 +23,7 @@ groundsub is a modified version of threepole (https://github.com/dessh/threepole
 > Primary Color  
 > Secondary Color  
 > Highlight Color  
-> Clear Count / Timer Color
+> Clear Count / Timer Color  
 > Color Reset Button  
 
 ## Acknowledgements
