@@ -19,6 +19,7 @@ groundsub is a modified version of threepole (https://github.com/dessh/threepole
 > Other (Strikes, Portal)  
 
 - Appearance Settings
+> Option to toggle overlay icons  
 > Primary Color  
 > Secondary Color  
 > Highlight Color  
