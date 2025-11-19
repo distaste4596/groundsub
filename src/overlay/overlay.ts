@@ -248,6 +248,15 @@ function applyPreferences(p: Preferences) {
         }
     }
 
+    const svgs = document.querySelectorAll<SVGElement>("#widget-content svg");
+    svgs.forEach(svg => {
+        if (p.displayIcons) {
+            svg.classList.remove("hidden");
+        } else {
+            svg.classList.add("hidden");
+        }
+    });
+
     if (timerInterval) {
         clearTimeout(timerInterval);
     }

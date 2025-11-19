@@ -30,6 +30,7 @@ export type ProfileInfo = {
 export type Preferences = {
     enableOverlay: boolean;
     displayDailyClears: boolean;
+    displayIcons: boolean;
     displayClearNotifications: boolean;
     displayMilliseconds: boolean;
     primaryBackground: string;

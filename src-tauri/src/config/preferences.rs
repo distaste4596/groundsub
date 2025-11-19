@@ -8,6 +8,7 @@ use super::ConfigFile;
 pub struct Preferences {
     pub enable_overlay: bool,
     pub display_daily_clears: bool,
+    pub display_icons: bool,
     pub display_clear_notifications: bool,
     pub display_milliseconds: bool,
     pub filter_activity_type: String,
@@ -23,6 +24,7 @@ impl Default for Preferences {
         Self {
             enable_overlay: false,
             display_daily_clears: true,
+            display_icons: true,
             display_clear_notifications: true,
             display_milliseconds: true,
             filter_activity_type: "all".to_string(),

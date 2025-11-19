@@ -28,8 +28,10 @@ svg {
     fill: var(--clear-text-color, #fff);
     vertical-align: middle;
     margin-right: 10px;
+    filter: drop-shadow(1px 1px 2px #000) brightness(0.67);
 }
 
 #widget-content .grey {
-    color: #aaa;
+    color: var(--clear-text-color, #fff);
+    filter: brightness(0.67);
 }

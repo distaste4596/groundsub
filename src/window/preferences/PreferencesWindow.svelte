@@ -126,7 +126,6 @@
         preferences.primaryHighlight = '#74259c';
         preferences.clearTextColor = '#ffffff';
         
-        // Force update the theme with all colors including clearTextColor
         await updateTheme({
             primaryBackground: preferences.primaryBackground,
             secondaryBackground: preferences.secondaryBackground,
@@ -134,7 +133,6 @@
             clearTextColor: preferences.clearTextColor
         });
         
-        // Force a re-render of the color picker by dispatching an input event
         const colorPickers = document.querySelectorAll('color-picker');
         colorPickers.forEach(picker => {
             if (picker.shadowRoot) {
@@ -173,6 +171,13 @@
                         bind:checked={preferences.displayDailyClears}
                         disabled={!preferences.enableOverlay}
                         >Display clears count</StyledCheckbox
+                    >
+                </div>
+                <div class="preference">
+                    <StyledCheckbox
+                        bind:checked={preferences.displayIcons}
+                        disabled={!preferences.enableOverlay}
+                        >Display icons</StyledCheckbox
                     >
                 </div>
                 <div class="preference">

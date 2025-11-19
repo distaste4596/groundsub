@@ -33,7 +33,7 @@ impl Poller {
         let notification_state = unsafe { SHQueryUserNotificationState() };
 
         match notification_state {
-            Ok(n) if n.0 == 3 => return PollResult::Closed, // If in DX exclusive fullscreen mode
+            Ok(n) if n.0 == 3 => return PollResult::Closed,
             _ => (),
         }
 

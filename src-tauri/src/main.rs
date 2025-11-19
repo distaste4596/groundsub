@@ -211,7 +211,7 @@ fn open_preferences_window(handle: &AppHandle) -> Result<(), tauri::Error> {
     )
     .title(APP_NAME)
     .decorations(false)
-    .inner_size(400.0, 500.0)
+    .inner_size(400.0, 525.0)
     .resizable(false)
     .visible(false)
     .build()?;
