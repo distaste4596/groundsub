@@ -8,6 +8,15 @@
     }
 }
 
+@keyframes progress-shrink {
+    0% {
+        width: 100%;
+    }
+    100% {
+        width: 0%;
+    }
+}
+
 #popup-panel {
     position: absolute;
     top: 0;
@@ -24,7 +33,7 @@
     box-shadow: 0px 0px 8px #00000033;
     background: linear-gradient(90deg, var(--primary-background), var(--secondary-background));
     background-origin: border-box;
-    padding: 17px 16px;
+    padding: 17px 16px 20px 16px;
     margin-bottom: 16px;
     transition: opacity 0.4s;
     animation: fade-in 0.4s;
@@ -65,4 +74,22 @@
 
 .popup strong {
     font-weight: 500;
+}
+
+.progress-bar {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background-color: rgba(255, 255, 255, 0.2);
+    border-radius: 0 0 0 0;
+    overflow: hidden;
+}
+
+.progress-fill {
+    height: 100%;
+    background-color: var(--primary-highlight);
+    animation: progress-shrink 7.6s linear forwards;
+    border-radius: 2px;
 }

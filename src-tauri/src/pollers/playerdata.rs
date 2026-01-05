@@ -1,7 +1,7 @@
 use std::{sync::Arc, time::Duration};
 
 use anyhow::{anyhow, bail, Result};
-use chrono::{DateTime, Utc, Datelike};
+use chrono::{DateTime, Utc};
 use serde::Serialize;
 use tauri::{
     async_runtime::{self, JoinHandle},
@@ -33,6 +33,7 @@ pub struct PlayerData {
 pub struct PlayerDataStatus {
     last_update: Option<PlayerData>,
     error: Option<String>,
+    history_loading: bool,
 }
 
 #[derive(Serialize, Clone)]
@@ -57,7 +58,11 @@ impl PlayerDataPoller {
 
         {
             let mut lock = self.current_playerdata.lock().await;
-            *lock = PlayerDataStatus::default();
+            *lock = PlayerDataStatus {
+                last_update: None,
+                error: None,
+                history_loading: false,
+            };
 
             send_data_update(&app_handle, lock.clone());
         }
@@ -102,12 +107,8 @@ impl PlayerDataPoller {
                 activity_hash: 0,
                 activity_info: None,
             };
-            let mut activity_history = Vec::new();
-
-            let res = match update_current(&app_handle, &mut current_activity, &profile).await {
-                Ok(_) => update_history(&app_handle, &mut activity_history, &profile).await,
-                Err(e) => Err(e),
-            };
+            
+            let res = update_current(&app_handle, &mut current_activity, &profile).await;
 
             {
                 let mut lock = playerdata_clone.lock().await;
@@ -115,11 +116,12 @@ impl PlayerDataPoller {
                     Ok(_) => {
                         let playerdata = PlayerData {
                             current_activity: current_activity,
-                            activity_history,
+                            activity_history: Vec::new(),
                             profile_info,
                         };
 
                         lock.last_update = Some(playerdata);
+                        lock.history_loading = true;
                         send_data_update(&app_handle, lock.clone());
                     }
                     Err(e) => {
@@ -128,6 +130,13 @@ impl PlayerDataPoller {
                         return;
                     }
                 }
+            }
+
+            if let Err(e) = load_history_incremental(&app_handle, &playerdata_clone, &profile).await {
+                let mut lock = playerdata_clone.lock().await;
+                lock.error = Some(format!("Failed to load activity history: {e}"));
+                lock.history_loading = false;
+                send_data_update(&app_handle, lock.clone());
             }
 
             let mut count = 0;
@@ -183,6 +192,26 @@ fn send_data_update(handle: &AppHandle, data: PlayerDataStatus) {
     if let Some(o) = handle.get_window("details") {
         o.emit("playerdata_update", data).unwrap();
     }
+}
+
+fn dedup_activities_prioritizing_completed(activities: Vec<CompletedActivity>) -> Vec<CompletedActivity> {
+    let mut deduped_activities = Vec::new();
+    let mut seen_instances = std::collections::HashSet::new();
+    
+    for activity in activities {
+        let instance_key = &activity.instance_id;
+        if seen_instances.insert(instance_key.clone()) {
+            deduped_activities.push(activity);
+        } else {
+            if let Some(existing) = deduped_activities.iter_mut().find(|a| a.instance_id == *instance_key) {
+                if !existing.completed && activity.completed {
+                    *existing = activity;
+                }
+            }
+        }
+    }
+    
+    deduped_activities
 }
 
 async fn update_current(
@@ -265,6 +294,158 @@ async fn update_current(
     Ok(true)
 }
 
+async fn load_history_incremental(
+    handle: &AppHandle,
+    playerdata_clone: &Arc<Mutex<PlayerDataStatus>>,
+    profile: &Profile,
+) -> Result<()> {
+    let api = handle.state::<Api>();
+
+
+    let profile_info = api.profile_info_source.lock().await.get(profile).await?;
+    
+    let mut all_activities: Vec<CompletedActivity> = Vec::new();
+    let mut master_list: Vec<CompletedActivity> = Vec::new();
+    let mut activities_sent = 0;
+    let mut total_api_calls = 0;
+    let cutoff = Utc::now() - chrono::Duration::days(30);
+
+    const INSTANT_COUNT: usize = 20;
+    const BATCH_SIZE: usize = 50;
+    let mut last_ui_update = std::time::Instant::now();
+    const UI_UPDATE_INTERVAL: Duration = Duration::from_millis(1000);
+
+    for (char_index, character_id) in profile_info.character_ids.iter().enumerate() {
+        let mut page = 0;
+
+        loop {
+            total_api_calls += 1;
+            
+            let api_start = std::time::Instant::now();
+            let history = Api::get_activity_history(profile, character_id, page).await?;
+            let api_duration = api_start.elapsed();
+
+            let activities = match history.activities {
+                Some(a) => {
+                    a
+                },
+                None => {
+                    break;
+                }
+            };
+
+            let mut includes_past_cutoff = false;
+            let mut valid_activities_this_page = 0;
+
+            for activity in activities.into_iter() {
+                if activity.period < cutoff {
+                    includes_past_cutoff = true;
+                } else if activity.modes.iter().any(|m| {
+                    *m == RAID_ACTIVITY_MODE
+                        || *m == DUNGEON_ACTIVITY_MODE
+                        || *m == STRIKE_ACTIVITY_MODE
+                        || *m == LOSTSECTOR_ACTIVITY_MODE
+                }) {
+                    all_activities.push(activity);
+                    valid_activities_this_page += 1;
+                }
+            }
+            
+
+            let previous_master_len = master_list.len();
+            master_list.extend(all_activities[previous_master_len..].to_vec());
+            
+            master_list.sort();
+            master_list.reverse();
+            master_list = dedup_activities_prioritizing_completed(master_list);
+            
+            all_activities.sort();
+            all_activities.reverse();
+
+            if activities_sent < INSTANT_COUNT && activities_sent < all_activities.len() {
+                let send_count = std::cmp::min(INSTANT_COUNT - activities_sent, all_activities.len() - activities_sent);
+                if send_count > 0 {
+                    let end_index = std::cmp::min(activities_sent + send_count, all_activities.len());
+                    let chunk = &all_activities[activities_sent..end_index];
+                    {
+                        let mut lock = playerdata_clone.lock().await;
+                        if let Some(ref mut last_update) = lock.last_update {
+                            last_update.activity_history.extend(chunk.to_vec());
+                            send_data_update(&handle, lock.clone());
+                        }
+                    }
+                    activities_sent += send_count;
+                }
+            } else if master_list.len() > activities_sent {
+                let remaining = master_list.len() - activities_sent;
+                let send_count = std::cmp::min(BATCH_SIZE, remaining);
+                let end_index = std::cmp::min(activities_sent + send_count, master_list.len());
+                let chunk = &master_list[activities_sent..end_index];
+                
+                let now = std::time::Instant::now();
+                let should_update = now.duration_since(last_ui_update) >= UI_UPDATE_INTERVAL || 
+                                   activities_sent + send_count >= master_list.len();
+                
+                if should_update {
+                    {
+                        let mut lock = playerdata_clone.lock().await;
+                        if let Some(ref mut last_update) = lock.last_update {
+                            last_update.activity_history = master_list[0..activities_sent + send_count].to_vec();
+                            send_data_update(&handle, lock.clone());
+                        }
+                    }
+                    last_ui_update = now;
+                    activities_sent += send_count;
+                } else {
+                    activities_sent += send_count;
+                }
+                
+                if activities_sent < master_list.len() {
+                    tokio::time::sleep(Duration::from_millis(200)).await;
+                }
+            }
+
+            if includes_past_cutoff {
+                break;
+            }
+
+            page += 1;
+        }
+    }
+
+
+    master_list.sort();
+    master_list.reverse();
+    
+    master_list = dedup_activities_prioritizing_completed(master_list);
+    
+    while activities_sent < master_list.len() {
+        let remaining = master_list.len() - activities_sent;
+        let send_count = std::cmp::min(BATCH_SIZE, remaining);
+        let end_index = std::cmp::min(activities_sent + send_count, master_list.len());
+        {
+            let mut lock = playerdata_clone.lock().await;
+            if let Some(ref mut last_update) = lock.last_update {
+                last_update.activity_history = master_list[0..activities_sent + send_count].to_vec();
+                send_data_update(&handle, lock.clone());
+            }
+        }
+        activities_sent += send_count;
+        if activities_sent < master_list.len() {
+            tokio::time::sleep(Duration::from_millis(200)).await;
+        }
+    }
+
+
+    {
+        let mut lock = playerdata_clone.lock().await;
+        lock.history_loading = false;
+        send_data_update(&handle, lock.clone());
+    }
+
+    Ok(())
+}
+
 async fn update_history(
     handle: &AppHandle,
     last_history: &mut Vec<CompletedActivity>,
@@ -277,21 +458,7 @@ async fn update_history(
     let mut past_activities: Vec<CompletedActivity> = Vec::new();
 
     let cutoff = {
-        let now = Utc::now();
-        
-        let today = now.date_naive();
-        
-        let days_since_tuesday = (today.weekday().num_days_from_monday() + 6) % 7;
-        
-        let last_tuesday = today - chrono::Days::new(days_since_tuesday as u64);
-        
-        let target_date = last_tuesday - chrono::Days::new(21);
-        
-        let naive_cutoff = target_date
-            .and_hms_opt(17, 0, 0)
-            .ok_or(anyhow!("Failed to create cutoff time"))?;
-            
-        DateTime::<Utc>::from_utc(naive_cutoff, Utc)
+        Utc::now() - chrono::Duration::days(30)
     };
 
     for character_id in profile_info.character_ids.iter() {
@@ -328,8 +495,8 @@ async fn update_history(
         }
     }
 
-    if let Some(last) = last_history.into_iter().max() {
-        if let Some(new) = (&mut past_activities).into_iter().max() {
+    if let Some(last) = last_history.iter().max() {
+        if let Some(new) = past_activities.iter().max() {
             if last >= new {
                 return Ok(false);
             }
@@ -337,10 +504,11 @@ async fn update_history(
     }
 
     past_activities.sort();
-
-    let sorted_activities = past_activities.into_iter().rev().collect();
-
-    *last_history = sorted_activities;
+    past_activities.reverse();
+    
+    past_activities = dedup_activities_prioritizing_completed(past_activities);
+    
+    *last_history = past_activities;
 
     Ok(true)
 }

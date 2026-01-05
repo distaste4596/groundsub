@@ -15,53 +15,193 @@
         formatMillis,
         formatTime,
     } from "../../core/util";
+    import { KNOWN_RAIDS, KNOWN_DUNGEONS, GROUPED_RAIDS, GROUPED_DUNGEONS, ACTIVITY_ALIASES, REPOSITORY_LINK, BUNGIE_API_STATUS, REPOSITORY_LINK_ISSUES } from "../../core/consts";
     import PreviousRaid from "./PreviousRaid.svelte";
     import Dot from "./Dot.svelte";
     import Loader from "../widgets/Loader.svelte";
+    import SearchableSelect from "./SearchableSelect.svelte";
     import * as ipc from "../../core/ipc";
+    import { emit } from '@tauri-apps/api/event';
+    import { createTimer, type TimerState, type Timer } from "../../core/timer";
 
-    let timeText = "";
-    let msText = "";
+    let timer = createTimer({ displayMilliseconds: true });
+    let timerState: TimerState = timer.getState();
+    let timerMode: 'default' | 'persistent' = 'default';
+    let lastTrackedActivityName: string = '';
+    let lastTrackedActivityType: string = '';
 
-    let playerData: PlayerData;
-    let error: string;
+    let playerData: PlayerData | undefined;
+    let error: string | undefined;
+    let historyLoading: boolean = false;
     $: countedClears = playerData ? countClears(playerData.activityHistory) : 0;
     let showBanner = false;
+    let preferences: Preferences = {
+        enableOverlay: false,
+        displayTimer: false,
+        displayDailyClears: false,
+        displayIcons: false,
+        displayClearNotifications: false,
+        displayMilliseconds: false,
+        showTimestampInstead: false,
+        useRealTime: false,
+        primaryBackground: '',
+        secondaryBackground: '',
+        primaryHighlight: '',
+        clearTextColor: '',
+        filterActivityType: 'all',
+        filterTimespan: '1',
+        timerMode: 'default',
+        raidLinkProvider: 'raid.report'
+    };
 
     let activityInfoMap: { [hash: number]: ActivityInfo } = {};
     let selectedActivityType = 'all';
     let selectedTimespan: '1' | '7' | '30' = '1';
-    
+    let saveTimeout: number;
+    $: activityOptions = [
+        { value: 'all', label: 'All Activities' },
+        { value: 'raids', label: 'Raids' },
+        { value: 'dungeons', label: 'Dungeons' },
+        { value: 'strikes', label: 'Strikes / Portal' },
+        { value: 'lost-sectors', label: 'Lost Sectors' },
+    ];
+
+    $: timespanOptions = [
+        { value: '1', label: preferences.useRealTime ? 'Last 24h' : 'Today' },
+        { value: '7', label: preferences.useRealTime ? 'Last 7d' : 'This Week' },
+        { value: '30', label: preferences.useRealTime ? 'Last 30d' : 'This Month' }
+    ];
+
+    function getAllActivityOptions() {
+        const specificOptions = [
+            ...Object.entries(GROUPED_RAIDS).map(([key, data]) => ({
+                value: `grouped-raid-${key}`,
+                label: data.name
+            })),
+            ...Object.entries(GROUPED_DUNGEONS).map(([key, data]) => ({
+                value: `grouped-dungeon-${key}`,
+                label: data.name
+            }))
+        ];
+        return [...activityOptions, ...specificOptions];
+    }
+
+    function searchActivities(query: string) {
+        const queryLower = query.toLowerCase().trim();
+        const allOptions = getAllActivityOptions();
+        
+        if (queryLower === '') return allOptions.slice(0, 5);
+        const matches = new Set<string>();
+        const results: { value: string; label: string }[] = [];
+        
+        Object.entries(ACTIVITY_ALIASES as Record<string, string>).forEach(([alias, groupKey]) => {
+            if (alias.startsWith(queryLower)) {
+                const isRaid = GROUPED_RAIDS[groupKey];
+                const groupData = isRaid ? GROUPED_RAIDS[groupKey] : GROUPED_DUNGEONS[groupKey];
+                if (groupData && !matches.has(groupKey)) {
+                    matches.add(groupKey);
+                    results.push({
+                        value: `${isRaid ? 'grouped-raid' : 'grouped-dungeon'}-${groupKey}`,
+                        label: groupData.name
+                    });
+                }
+            }
+        });
+        
+        allOptions.forEach(option => {
+            if (option.label.toLowerCase().includes(queryLower) && !matches.has(option.value)) {
+                results.push(option);
+            }
+        });
+        
+        return results.slice(0, 5);
+    }
+
     function filterActivities(activities: CompletedActivity[], type: string, timespan: string) {
         let filtered = activities;
 
         const now = new Date();
         const activityDate = (period: string) => new Date(period);
         
-        if (timespan === '1') {
-            const today = new Date();
-            today.setUTCHours(17, 0, 0, 0);
-            if (today > now) {
-                today.setUTCDate(today.getUTCDate() - 1);
+        if (preferences.useRealTime) {
+            if (timespan === '1') {
+                const cutoff = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+                filtered = filtered.filter(activity => activityDate(activity.period) >= cutoff);
+            } else if (timespan === '7') {
+                const cutoff = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+                filtered = filtered.filter(activity => activityDate(activity.period) >= cutoff);
+            } else if (timespan === '30') {
+                const cutoff = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+                filtered = filtered.filter(activity => activityDate(activity.period) >= cutoff);
             }
-            filtered = filtered.filter(activity => activityDate(activity.period) >= today);
-        } else if (timespan === '7') {
-            const today = new Date(now);
-            const day = today.getUTCDay();
-            const daysSinceTuesday = (day + 5) % 7;
-            const lastTuesday = new Date(today);
-            lastTuesday.setUTCDate(today.getUTCDate() - daysSinceTuesday);
-            lastTuesday.setUTCHours(17, 0, 0, 0);
-            filtered = filtered.filter(activity => activityDate(activity.period) >= lastTuesday);
+        } else {
+            if (timespan === '1') {
+                const today = new Date();
+                today.setUTCHours(17, 0, 0, 0);
+                if (today > now) {
+                    today.setUTCDate(today.getUTCDate() - 1);
+                }
+                filtered = filtered.filter(activity => activityDate(activity.period) >= today);
+            } else if (timespan === '7') {
+                const today = new Date(now);
+                const day = today.getUTCDay();
+                const daysSinceTuesday = (day + 5) % 7;
+                const lastTuesday = new Date(today);
+                lastTuesday.setUTCDate(today.getUTCDate() - daysSinceTuesday);
+                lastTuesday.setUTCHours(17, 0, 0, 0);
+                filtered = filtered.filter(activity => activityDate(activity.period) >= lastTuesday);
+            } else if (timespan === '30') {
+                const today = new Date(now);
+                const day = today.getUTCDay();
+                const daysSinceTuesday = (day + 5) % 7;
+                const lastTuesday = new Date(today);
+                lastTuesday.setUTCDate(today.getUTCDate() - daysSinceTuesday);
+                const targetDate = new Date(lastTuesday);
+                targetDate.setUTCDate(lastTuesday.getUTCDate() - 21);
+                targetDate.setUTCHours(17, 0, 0, 0);
+                filtered = filtered.filter(activity => activityDate(activity.period) >= targetDate);
+            }
         }
         
         if (type === 'all') return filtered;
+        
+        if (type.startsWith('grouped-raid-')) {
+            const groupKey = type.replace('grouped-raid-', '');
+            const groupData = (GROUPED_RAIDS as Record<string, { name: string; hashes: number[] }>)[groupKey];
+            if (groupData) {
+                return filtered.filter(activity => 
+                    groupData.hashes.includes(activity.activityHash)
+                );
+            }
+        }
+        
+        if (type.startsWith('grouped-dungeon-')) {
+            const groupKey = type.replace('grouped-dungeon-', '');
+            const groupData = (GROUPED_DUNGEONS as Record<string, { name: string; hashes: number[] }>)[groupKey];
+            if (groupData) {
+                return filtered.filter(activity => 
+                    groupData.hashes.includes(activity.activityHash)
+                );
+            }
+        }
+        
+        if (type.startsWith('raid-')) {
+            const raidHash = parseInt(type.split('-')[1]);
+            return filtered.filter(activity => activity.activityHash === raidHash);
+        }
+        
+        if (type.startsWith('dungeon-')) {
+            const dungeonHash = parseInt(type.split('-')[1]);
+            return filtered.filter(activity => activity.activityHash === dungeonHash);
+        }
+        
         return filtered.filter(activity => {
             const activityType = determineActivityType(activity.modes);
             if (!activityType) return false;
             if (type === 'raids') return activityType === 'Raid';
             if (type === 'dungeons') return activityType === 'Dungeon';
-            if (type === 'other') return !['Raid', 'Dungeon'].includes(activityType);
+            if (type === 'strikes') return activityType === 'Strike';
+            if (type === 'lost-sectors') return activityType === 'Lost Sector';
             return true;
         });
     }
@@ -69,7 +209,13 @@
     $: filteredActivities = playerData ? filterActivities(playerData.activityHistory, selectedActivityType, selectedTimespan) : [];
     $: filteredClears = filteredActivities.filter(a => a.completed).length;
     
-    import { emit } from '@tauri-apps/api/event';
+    $: if (filteredActivities.length > 0) {
+        filteredActivities.forEach(activity => {
+            if (!activityInfoMap[activity.activityHash]) {
+                getActivityInfoAsync(activity.activityHash);
+            }
+        });
+    }
     
     $: if (playerData && selectedTimespan) {
         emit('filter-changed', {
@@ -79,22 +225,77 @@
     }
 
     $: activityType = determineActivityType(
-        playerData?.currentActivity?.activityInfo?.activityModes
+        playerData?.currentActivity?.activityInfo?.activityModes || []
     )
 
-    setInterval(() => requestAnimationFrame(timerTick), 1000 / 30);
+    timer.subscribe((state) => {
+        timerState = state;
+        timerMode = state.mode;
+        emit('timer-state-update', state).catch(console.error);
+    });
 
-    function timerTick() {
-        if (!activityType) {
-            return;
+    function toggleTimerMode() {
+        const newMode = timerMode === 'default' ? 'persistent' : 'default';
+        timer.setMode(newMode);
+        timerMode = newMode;
+
+        saveTimerModeToConfig(newMode);
+    }
+
+    function refreshPersistentTimer() {
+        timer.clearActivity();
+        lastTrackedActivityName = '';
+        lastTrackedActivityType = '';
+    }
+
+    async function saveTimerModeToConfig(mode: 'default' | 'persistent') {
+        try {
+            const currentPrefs = await ipc.getPreferences();
+            const updatedPrefs = {
+                ...currentPrefs,
+                timerMode: mode
+            };
+            await ipc.setPreferences(updatedPrefs);
+        } catch (error) {
+            console.error('Failed to save timer mode:', error);
         }
+    }
 
-        let millis =
-            Number(new Date()) -
-            Number(new Date(playerData.currentActivity.startDate));
+    $: isInOrbit = playerData?.currentActivity?.activityHash === 0;
 
-        timeText = formatTime(millis);
-        msText = formatMillis(millis);
+    $: if (!isInOrbit && playerData?.currentActivity?.activityInfo && activityType) {
+        if (timer.getMode() !== 'persistent' || 
+            (!timer.isTrackingActivity(playerData.currentActivity.activityHash) && 
+             !timer.wasRecentlyCompleted(playerData.currentActivity.activityHash))) {
+            lastTrackedActivityName = playerData.currentActivity.activityInfo.name;
+            lastTrackedActivityType = activityType;
+            timer.startActivity(playerData.currentActivity, playerData.activityHistory);
+        }
+    } else if (isInOrbit) {
+    } else if (timer.getMode() === 'default') {
+        timer.stop();
+    }
+
+    $: if (playerData?.activityHistory && timer.getMode() === 'persistent') {
+        timer.checkActivityCompleted(playerData.activityHistory);
+    }
+
+    let activityInfoLoadingMap: { [hash: number]: Promise<ActivityInfo> } = {};
+    
+    function getActivityInfoAsync(hash: number): Promise<ActivityInfo> {
+        if (activityInfoMap[hash]) {
+            return Promise.resolve(activityInfoMap[hash]);
+        }
+        
+        if (!activityInfoLoadingMap[hash]) {
+            activityInfoLoadingMap[hash] = ipc.getActivityInfo(hash).then(info => {
+                activityInfoMap[hash] = info;
+                delete activityInfoLoadingMap[hash];
+                return info;
+            });
+        }
+        
+        return activityInfoLoadingMap[hash];
     }
 
     async function getActivityInfo(hash: number): Promise<ActivityInfo> {
@@ -112,6 +313,7 @@
     function handleUpdate(status: PlayerDataStatus | null) {
         playerData = status?.lastUpdate;
         error = status?.error;
+        historyLoading = status?.historyLoading || false;
 
         let currentActivity = playerData?.currentActivity;
         if (currentActivity?.activityInfo) {
@@ -130,23 +332,39 @@
         await ipc.setPreferences(updatedPrefs);
     }
 
+    function debouncedSavePreferences() {
+        if (saveTimeout) {
+            clearTimeout(saveTimeout);
+        }
+        saveTimeout = setTimeout(() => {
+            updateAndSavePreferences();
+        }, 500);
+    }
+
     $: if (selectedActivityType && selectedTimespan) {
-        updateAndSavePreferences();
+        debouncedSavePreferences();
     }
 
     async function init() {
         const savedPrefs = await ipc.getPreferences();
+        preferences = savedPrefs;
         document.documentElement.style.setProperty('--primary-background', savedPrefs.primaryBackground);
         document.documentElement.style.setProperty('--secondary-background', savedPrefs.secondaryBackground);
         selectedActivityType = savedPrefs.filterActivityType || 'all';
-        selectedTimespan = (savedPrefs.filterTimespan as '1' | '7' | '30') || '1';
+        selectedTimespan = (savedPrefs.filterTimespan || '1') as '1' | '7' | '30';
+        timerMode = savedPrefs.timerMode || 'default';
+        timer.setMode(timerMode);
 
         handleUpdate(await ipc.getPlayerdata());
 
         const unlisten = await listen<Preferences>('preferences_update', (event) => {
             const prefs = event.payload;
+            preferences = prefs;
             document.documentElement.style.setProperty('--primary-background', prefs.primaryBackground);
             document.documentElement.style.setProperty('--secondary-background', prefs.secondaryBackground);
+            if (playerData) {
+                playerData = { ...playerData };
+            }
         });
 
         appWindow.listen(
@@ -190,13 +408,19 @@
         <div class="header margin">
             <div class="status">
                 {#if playerData}
-                    {#if activityType}
+                    {#if timerMode === 'persistent' && timerState.timeText === "--:--:--"}
+                        <h1>{timerState.timeText}<span class="small grey">{timerState.msText}</span></h1>
+                        <h2 class="grey">WAITING FOR NEW ACTIVITY</h2>
+                    {:else if activityType}
                         <h1>
-                            {timeText}<span class="small grey">{msText}</span>
+                            {timerState.timeText}<span class="small grey">{timerState.msText}</span>
                         </h1>
                         <h2 class="grey">
                             {playerData.currentActivity.activityInfo.name.toUpperCase()} ({activityType})
                         </h2>
+                    {:else if timerMode === 'persistent' && timerState.isActive && lastTrackedActivityName}
+                        <h1>{timerState.timeText}<span class="small grey">{timerState.msText}</span></h1>
+                        <h2 class="grey">{lastTrackedActivityName.toUpperCase()} ({lastTrackedActivityType || 'Activity'})</h2>
                     {:else}
                         <h1 class="small">
                             {playerData.profileInfo.displayName}<span
@@ -210,17 +434,31 @@
                     <h1 class="small">Error</h1>
                     <p class="error">{error}</p>
                     <div class="error-actions">
-                        <p>If the error persists, either the API has problems or you are cooked.</p>
+                        <p>If this error persists, consider: </p>
+                        <ul>
+                            <li>Restarting your computer / router</li>
+                            <li>Checking the Bungie API status <a href="{BUNGIE_API_STATUS}" target="_blank" rel="noopener noreferrer">here</a></li>
+                            <li>Opening an issue on GitHub <a href="{REPOSITORY_LINK_ISSUES}" target="_blank" rel="noopener noreferrer">here</a></li>
+                            <li>Messaging me on discord: xxccss</li>
+                        </ul>
                     </div>
                 {/if}
             </div>
             <div class="actions">
+                {#if timerMode === 'persistent'}
+                    <button on:click={refreshPersistentTimer} class="refresh-timer-btn" title="Resets the timer to current activity">
+                        <svg xmlns="http://www.w3.org/2000/svg" height="24" width="24"><path d="M17.65 6.35A7.958 7.958 0 0012 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08A5.99 5.99 0 0112 18c-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4z"/></svg>
+                    </button>
+                {/if}
+                <button on:click={toggleTimerMode} class="timer-mode-btn">
+                    {timerMode === 'persistent' ? 'Persistent Timer' : 'Default Timer'}
+                </button>
                 <button on:click={() => ipc.openProfiles()}>
                     <svg
                         xmlns="http://www.w3.org/2000/svg"
                         height="24"
                         width="24"
-                        ><path
+                    ><path
                             d="M12 12q-1.65 0-2.825-1.175Q8 9.65 8 8q0-1.65 1.175-2.825Q10.35 4 12 4q1.65 0 2.825 1.175Q16 6.35 16 8q0 1.65-1.175 2.825Q13.65 12 12 12Zm-8 8v-2.8q0-.85.438-1.563.437-.712 1.162-1.087 1.55-.775 3.15-1.163Q10.35 13 12 13t3.25.387q1.6.388 3.15 1.163.725.375 1.162 1.087Q20 16.35 20 17.2V20Z"
                         /></svg
                     >
@@ -230,7 +468,7 @@
                         xmlns="http://www.w3.org/2000/svg"
                         height="24"
                         width="24"
-                        ><path
+                    ><path
                             d="m10.125 21-.35-2.9q-.475-.125-1.037-.437Q8.175 17.35 7.8 17l-2.675 1.125-1.875-3.25 2.325-1.75q-.05-.25-.087-.538-.038-.287-.038-.562 0-.25.038-.538.037-.287.087-.612L3.25 9.125l1.875-3.2 2.65 1.1q.45-.375.963-.675.512-.3 1.012-.45l.375-2.9h3.75l.35 2.9q.575.225 1.013.475.437.25.912.65l2.725-1.1 1.875 3.2-2.4 1.8q.1.3.1.563V12q0 .225-.012.488-.013.262-.088.637l2.35 1.75-1.875 3.25-2.675-1.15q-.475.4-.937.675-.463.275-.988.45l-.35 2.9Zm1.85-6.5q1.05 0 1.775-.725.725-.725.725-1.775 0-1.05-.725-1.775-.725-.725-1.775-.725-1.05 0-1.775.725-.725.725-.725 1.775 0 1.05.725 1.775.725.725 1.775.725Z"
                         /></svg
                     >
@@ -241,19 +479,21 @@
             <div class="margin">
                 <div class="filters">
                     <div class="filter-group">
-                        <select class="activity-filter" bind:value={selectedActivityType}>
-                            <option value="all">All Activities</option>
-                            <option value="raids">Raids</option>
-                            <option value="dungeons">Dungeons</option>
-                            <option value="other">Other</option>
-                        </select>
+                        <SearchableSelect 
+                            bind:value={selectedActivityType}
+                            options={activityOptions}
+                            getAllOptions={searchActivities}
+                            getAllActivityOptions={getAllActivityOptions}
+                            placeholder="Search activities..."
+                        />
                     </div>
                     <div class="filter-group">
-                        <select class="timespan-filter" bind:value={selectedTimespan}>
-                            <option value="1">Today</option>
-                            <option value="7">This Week</option>
-                            <option value="30">This Month</option>
-                        </select>
+                        <SearchableSelect 
+                            bind:value={selectedTimespan}
+                            options={timespanOptions}
+                            searchable={false}
+                            width="120px"
+                        />
                     </div>
                     <div class="clear-counters">
                         <span class="item">
@@ -265,19 +505,44 @@
                     </div>
                 </div>
                 <div class="activities-divider"></div>
+                {#if historyLoading}
+                    {#if playerData?.activityHistory.length === 0}
+                        <div class="loading-container">
+                            <div class="loading-spinner-fixed">
+                                <Loader />
+                            </div>
+                            <div class="loading-text-dynamic">
+                                <p class="loading-text">
+                                    Loading activity history...
+                                </p>
+                            </div>
+                        </div>
+                    {:else}
+                        <div class="loading-container">
+                            <div class="loading-text-dynamic">
+                                <p class="loading-text">
+                                    ({playerData.activityHistory.length} activities loaded)
+                                </p>
+                            </div>
+                        </div>
+                    {/if}
+                {/if}
                 {#each filteredActivities as activity}
-                    {#await getActivityInfo(activity.activityHash) then activityInfo}
-                        <PreviousRaid {activity} {activityInfo} />
-                    {/await}
+                    <PreviousRaid 
+                        {activity} 
+                        activityInfo={activityInfoMap[activity.activityHash]}
+                        showTimestamp={preferences.showTimestampInstead}
+                        raidLinkProvider={preferences.raidLinkProvider}
+                    />
                 {/each}
                 {#if filteredActivities.length == 0}
                     <p class="list-empty">
                         {#if selectedTimespan === '1'}
-                            No activities completed today.
+                            {preferences.useRealTime ? 'No activities completed in the last 24 hours.' : 'No activities completed today.'}
                         {:else if selectedTimespan === '7'}
-                            No activities completed this week.
+                            {preferences.useRealTime ? 'No activities completed in the last 7 days.' : 'No activities completed this week.'}
                         {:else}
-                            No activities completed yet.
+                            {preferences.useRealTime ? 'No activities completed in the last 30 days.' : 'No activities completed this month.'}
                         {/if}
                     </p>
                 {/if}
@@ -305,7 +570,7 @@
 
     .filters {
         display: flex;
-        gap: 12px;
+        gap: 3px;
         margin-bottom: 8px;
         align-items: center;
         flex-wrap: nowrap;
@@ -318,56 +583,21 @@
         max-width: 160px;
     }
 
-    select {
-        appearance: none;
-        -webkit-appearance: none;
-        -moz-appearance: none;
-        background-color: rgba(255, 255, 255, 0.05);
-        border: 1px solid rgba(255, 255, 255, 0.1);
-        border-radius: 4px;
-        padding: 6px 24px 6px 10px;
-        color: var(--text-primary);
-        font-size: 13px;
-        width: 100%;
-        cursor: pointer;
-        transition: all 0.2s ease;
-        font-family: inherit;
-        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
-        height: 32px;
-    }
-
-    select:hover {
-        background-color: rgba(255, 255, 255, 0.08);
-        border-color: rgba(255, 255, 255, 0.2);
-    }
-
-    select option {
-        background-color: var(--primary-background);
-        color: var(--text-primary);
-        padding: 8px;
-    }
-
-    .filter-group::after {
-        content: '▼';
-        position: absolute;
-        right: 8px;
-        top: 50%;
-        transform: translateY(-50%);
-        color: var(--text-secondary);
-        pointer-events: none;
-        font-size: 8px;
-    }
-
+    
     .clear-counters {
         margin-left: auto;
         display: flex;
         gap: 12px;
         font-size: 13px;
-        padding: 4px 12px;
-        background: rgba(255, 255, 255, 0.03);
-        border-radius: 4px;
-        border: 1px solid rgba(255, 255, 255, 0.05);
+        padding: 4px 10px;
+        background: rgba(255, 255, 255, 0.035);
+        backdrop-filter: blur(8px);
+        border-radius: 0;
+        border: 1px solid rgba(255, 255, 255, 0.06);
         white-space: nowrap;
+        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
+        box-sizing: border-box;
+        transition: all 0.1s ease;
     }
 
     .activities-divider {
@@ -439,6 +669,13 @@
         flex: 1;
     }
 
+    .actions {
+        display: flex;
+        gap: 3px;
+        align-items: flex-start;
+        margin-top: 0px;
+    }
+
     .error {
         color: var(--error);
         margin-top: 8px;
@@ -455,39 +692,89 @@
         font-weight: 500;
     }
 
-    .error-actions li {
-        font-size: 16px;
-        margin-left: 12px;
-        font-weight: 300;
-    }
-
     .actions button {
-        padding: 4px;
+        appearance: none;
+        -webkit-appearance: none;
+        -moz-appearance: none;
+        background: rgba(255, 255, 255, 0.035);
+        backdrop-filter: blur(8px);
+        border: 1px solid rgba(255, 255, 255, 0.06);
+        border-radius: 0;
+        padding: 4px 2px;
         fill: #fff;
-        transition: background-color 0.1s;
+        transition: all 0.1s ease;
         font-size: 0;
+        vertical-align: middle;
+        line-height: 1;
+        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
+        box-sizing: border-box;
+        height: 32px;
+        width: 32px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
     }
 
     .actions button:hover {
-        background-color: rgba(255, 255, 255, 0.05);
+        background: rgba(255, 255, 255, 0.08);
+        border-color: rgba(255, 255, 255, 0.2);
     }
 
-    .summary {
-        font-size: 16px;
-        padding-bottom: 8px;
-        border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-    }
-
-    .key {
-        float: right;
-    }
-
-    .key .item {
-        margin-right: 8px;
-    }
-
-    .key * {
+    .actions button.timer-mode-btn {
+        appearance: none;
+        -webkit-appearance: none;
+        -moz-appearance: none;
+        background: rgba(255, 255, 255, 0.035);
+        backdrop-filter: blur(8px);
+        border: 1px solid rgba(255, 255, 255, 0.06);
+        border-radius: 0;
+        padding: 6px 10px;
+        color: var(--text-primary);
+        font-size: 13px;
+        cursor: pointer;
+        transition: all 0.1s ease;
+        font-family: inherit;
+        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
+        height: 32px;
+        width: 120px;
+        text-align: center;
+        fill: #fff;
+        line-height: 1;
         vertical-align: middle;
+        box-sizing: border-box;
+    }
+
+    .actions button.timer-mode-btn:hover {
+        background: rgba(255, 255, 255, 0.08);
+        border-color: rgba(255, 255, 255, 0.2);
+    }
+
+    .refresh-timer-btn {
+        appearance: none;
+        -webkit-appearance: none;
+        -moz-appearance: none;
+        background: rgba(255, 255, 255, 0.035);
+        backdrop-filter: blur(8px);
+        border: 1px solid rgba(255, 255, 255, 0.06);
+        border-radius: 0;
+        padding: 4px;
+        fill: #fff;
+        transition: all 0.1s ease;
+        font-size: 0;
+        cursor: pointer;
+        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
+        box-sizing: border-box;
+        height: 32px;
+        width: 32px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        vertical-align: middle;
+    }
+
+    .refresh-timer-btn:hover {
+        background: rgba(255, 255, 255, 0.08);
+        border-color: rgba(255, 255, 255, 0.2);
     }
 
     .list-empty {
@@ -495,5 +782,33 @@
         color: #aaa;
         margin-top: 12px;
         font-size: 14px;
+    }
+
+    .loading-container {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        padding: 20px;
+        gap: 12px;
+    }
+
+    .loading-spinner-fixed {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        height: 72px;
+    }
+
+    .loading-text-dynamic {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .loading-text {
+        color: #aaa;
+        font-size: 14px;
+        margin: 0;
     }
 </style>

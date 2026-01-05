@@ -1,37 +1,108 @@
 <script lang="ts">
     import { determineActivityType } from "../../core/util";
-    import type { ActivityInfo, CompletedActivity } from "../../core/types";
+    import { KNOWN_RAIDS, KNOWN_DUNGEONS } from "../../core/consts";
+    import type { ActivityInfo, CompletedActivity, Preferences } from "../../core/types";
     import Dot from "./Dot.svelte";
+    import { onMount, onDestroy } from 'svelte';
+    import { listen } from "@tauri-apps/api/event";
+    import * as ipc from "../../core/ipc";
 
     export let activity: CompletedActivity;
-    export let activityInfo: ActivityInfo;
+    export let activityInfo: ActivityInfo | undefined;
+    export let showTimestamp = false;
+    export let raidLinkProvider: string = 'raid.report';
+    
+    let displayText = '';
+    let displayName = '';
+    let lastActivityHash: number | undefined;
+    let isLoading = false;
+    
+    $: {
+        updateDisplayText();
+        if (lastActivityHash !== activity.activityHash) {
+            lastActivityHash = activity.activityHash;
+            isLoading = true;
+            displayName = 'Loading...';
+        }
+        updateDisplayName();
+    }
+    $: if (activityInfo) {
+        updateDisplayName();
+    }
+    
+    function updateDisplayText() {
+        displayText = getTimeDisplay();
+    }
 
-    function getReportPrefix(): string {
-        const activityType = determineActivityType(activity.modes);
-
-        switch (activityType) {
-            case "Dungeon":
-            case "Strike":
-                return activityType.toLowerCase();
-            default:
-                return "raid";
+    function updateDisplayName() {
+        if (isLoading && activityInfo) {
+            isLoading = false;
+        }
+        
+        if (!activityInfo || isLoading) {
+            displayName = 'Loading...';
+            return;
+        }
+        
+        displayName = activityInfo.name;
+        
+        const allMasterActivities: Record<number, boolean> = {
+            ...Object.entries(KNOWN_RAIDS)
+                .filter(([_, name]) => name.includes('(Master)'))
+                .reduce((acc, [hash, _]) => ({ ...acc, [parseInt(hash)]: true }), {}),
+            ...Object.entries(KNOWN_DUNGEONS)
+                .filter(([_, name]) => name.includes('(Master)'))
+                .reduce((acc, [hash, _]) => ({ ...acc, [parseInt(hash)]: true }), {})
+        };
+        
+        if (allMasterActivities[activity.activityHash]) {
+            displayName = displayName.replace(/\s*\(Master\)/g, '') + ' (Master)';
         }
     }
 
-    function timeElapsed(): string {
-        let millis =
-            Number(new Date()) -
-            Number(new Date(activity.period)) -
-            activity.activityDurationSeconds * 1000;
+    $: reportUrl = (() => {
+        const activityType = determineActivityType(activity.modes);
+        
+        switch (activityType) {
+            case "Dungeon":
+                return `https://dungeon.report/pgcr/${activity.instanceId}`;
+            case "Raid":
+                return `https://${raidLinkProvider}/pgcr/${activity.instanceId}`;
+            default:
+                return `https://gm.report/pgcr/${activity.instanceId}`;
+        }
+    })();
 
-        let minutes = Math.floor(millis / 60000);
-
-        if (minutes == 0) {
-            return "1m ago";
-        } else if (minutes < 60) {
-            return `${minutes}m ago`;
+    function getTimeDisplay(): string {
+        if (showTimestamp) {
+            const endTime = new Date(activity.period);
+            endTime.setSeconds(endTime.getSeconds() + activity.activityDurationSeconds);
+           
+            const year = endTime.getFullYear();
+            const month = String(endTime.getMonth() + 1).padStart(2, '0');
+            const day = String(endTime.getDate()).padStart(2, '0');
+            const timeString = endTime.toLocaleTimeString('en-US', {
+                hour: '2-digit',
+                minute: '2-digit',
+                hour12: true
+            });
+            
+            return `${year}-${month}-${day}, ${timeString}`;
         } else {
-            return `${Math.floor(minutes / 60)}h ago`;
+            let millis =
+                Number(new Date()) -
+                Number(new Date(activity.period)) -
+                activity.activityDurationSeconds * 1000;
+
+            let minutes = Math.floor(millis / 60000);
+
+            if (minutes == 0) {
+                return "1m ago";
+            } else if (minutes < 60) {
+                return `${minutes}m ago`;
+            } else {
+                return `${Math.floor(minutes / 60)}h ago`;
+            }
         }
     }
 </script>
@@ -40,16 +111,16 @@
     <div class="details">
         <p class="title">
             <Dot completed={activity.completed} />
-            <span>{activityInfo.name}</span>
+            <span>{displayName}</span>
         </p>
         <p>
-            {activity.activityDuration}<span
-                class="center-dot"
-            />{timeElapsed()}
+            {activity.activityDuration}
+            <span class="center-dot" />
+            {displayText}
         </p>
     </div>
     <a
-        href="https://{getReportPrefix()}.report/pgcr/{activity.instanceId}"
+        href={reportUrl}
         target="_blank"
         rel="noreferrer"
         ><svg xmlns="http://www.w3.org/2000/svg" height="20" width="20"
@@ -113,7 +184,7 @@
     }
 
     a:hover {
-        background-color: rgba(255, 255, 255, 0.05);
+        background-color: rgba(255, 255, 255, 0.08);
         fill: #fff;
     }
 </style>

@@ -1,23 +1,34 @@
 <script lang="ts">
     export let checked = false;
     export let disabled = false;
+    export let title = '';
+    
+    $: showTooltip = title && title.length > 0;
 </script>
 
 <button
     class="container {checked ? 'checked' : ''}"
     on:click={() => (checked = !checked)}
     {disabled}
+    {title}
 >
     <div class="box">
         <div class="checkmark" />
     </div>
     <span><slot /></span>
+    {#if showTooltip}
+        <svg class="tooltip-icon" xmlns="http://www.w3.org/2000/svg" height="12" width="12" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/>
+        </svg>
+    {/if}
 </button>
 
 <style>
     .container {
-        display: block;
-        height: 20px;
+        display: flex;
+        align-items: flex-start;
+        min-height: 20px;
+        height: auto;
     }
 
     .box {
@@ -28,9 +39,10 @@
         margin-right: 12px;
         border: 1px solid rgba(255, 255, 255, 0.1);
         background-color: rgba(0, 0, 0, 0.1);
-        vertical-align: middle;
         border-radius: 2px;
         transition: background-color 0.1s;
+        flex-shrink: 0;
+        margin-top: 2px;
     }
 
     .container:not(.checked):not(:disabled) .box:hover {
@@ -43,6 +55,19 @@
 
     .container:disabled .box {
         background-color: rgba(40, 40, 40, 0.4);
+    }
+    
+    .tooltip-icon {
+        opacity: 0.4;
+        margin-left: 6px;
+        flex-shrink: 0;
+        transition: opacity 0.2s;
+        color: rgba(255, 255, 255, 0.6);
+    }
+    
+    .container:not(:disabled):hover .tooltip-icon {
+        opacity: 0.7;
+        color: rgba(255, 255, 255, 0.8);
     }
 
     .container.checked:disabled .box {
@@ -73,11 +98,11 @@
 
     span {
         display: inline-block;
-        height: 20px;
         font-size: 14px;
-        vertical-align: middle;
-        line-height: 20px;
+        line-height: 1.4;
         color: #fff;
+        white-space: normal;
+        flex: 1;
     }
 
     .container:disabled span {

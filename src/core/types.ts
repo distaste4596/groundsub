@@ -29,21 +29,27 @@ export type ProfileInfo = {
 
 export type Preferences = {
     enableOverlay: boolean;
+    displayTimer: boolean;
     displayDailyClears: boolean;
     displayIcons: boolean;
     displayClearNotifications: boolean;
     displayMilliseconds: boolean;
+    showTimestampInstead: boolean;
+    useRealTime: boolean;
     primaryBackground: string;
     secondaryBackground: string;
     primaryHighlight: string;
     clearTextColor: string;
     filterActivityType: string;
     filterTimespan: string;
+    timerMode: 'default' | 'persistent';
+    raidLinkProvider: 'raid.report' | 'raidhub.io';
 };
 
 export type PlayerDataStatus = {
     lastUpdate: PlayerData,
     error: string,
+    historyLoading: boolean,
 }
 
 export type PlayerData = {

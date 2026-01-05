@@ -27,6 +27,15 @@ function showQueuedPopups() {
         popup.appendChild(title);
         popup.appendChild(subtext);
 
+        let progressBar = document.createElement("div");
+        progressBar.classList.add("progress-bar");
+        
+        let progressFill = document.createElement("div");
+        progressFill.classList.add("progress-fill");
+        
+        progressBar.appendChild(progressFill);
+        popup.appendChild(progressBar);
+
         popupPanel.appendChild(popup);
 
         setTimeout(() => {

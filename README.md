@@ -1,33 +1,67 @@
-
 ## About
 
-dm me on discord **xxccss** for support or questions.
+For support or questions, contact **xxccss** on Discord.
 
-groundsub is a modified version of threepole (https://github.com/dessh/threepole)
+groundsub is a modified version of  
+https://github.com/dessh/threepole
 
-**If you want to use the overlay, make sure that you play Destiny 2 in borderless windowed or windowed fullscreen mode.**
+
+---
 
 ## Added Features
-- Timespan filter  
-> Today (Last Daily reset)  
-> This Week (Last Weekly reset)  
-> This Month (Last 4 Weekly resets)  
 
-- Activity filter
-> Raids  
-> Dungeons  
-> Other (Strikes, Portal)  
+### Timer Modes
+- **Default**  
+  Standard activity timer
 
-- Appearance Settings
-> Primary Color  
-> Secondary Color  
-> Highlight Color  
-> Clear Count / Timer Color
-> Color Reset Button  
+- **Persistent**  
+  Continues tracking until the activity is completed or you load into a different activity  
+  _Not recommended if you need to quickly relaunch activities_
+
+### Time Range Filters
+- **Today / 24h**  
+  Since last daily reset or past 24 hours
+
+- **This Week / 7d**  
+  Since last weekly reset or past 7 days
+
+- **This Month / 30d**  
+  Last 4 weekly resets or past 30 days
+
+### Activity Filters
+- Selected Activities (Only works for Raids & Dungeons)
+- All Activities
+- Raids
+- Dungeons
+- Strikes / Portal
+- Lost Sectors
+
+### Settings
+
+**Overlay**
+- Toggle timer
+- Toggle icons
+
+**Details**
+- Show timestamps instead of elapsed time
+- Swap between Bungie time and real time
+- Select raid link provider (`raid.report` or `raidhub.io`)
+
+**Appearance**
+- Primary color
+- Secondary color
+- Highlight color
+- Clear count / timer color
+- Reset colors
+
+---
 
 ## Acknowledgements
 
-MADE BY https://github.com/dessh  
-SOME CODE TAKEN FROM https://github.com/Taskeren
+Created by  
+https://github.com/dessh
 
-Thanks to **Giraf**, **Icy**, and the other testers during beta.
+Additional code from  
+https://github.com/Taskeren
+
+Thanks to **Giraf**, **Icy**, and all beta testers.  

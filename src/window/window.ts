@@ -3,11 +3,34 @@ import "./window.css";
 import ProfilesWindow from "./profiles/ProfilesWindow.svelte";
 import PreferencesWindow from "./preferences/PreferencesWindow.svelte";
 import DetailsWindow from "./details/DetailsWindow.svelte";
-import { appWindow } from "@tauri-apps/api/window";
+import { appWindow, WebviewWindow, LogicalPosition } from "@tauri-apps/api/window";
 import { initializeTheme } from "../core/theme";
+
+async function loadWindowPosition() {
+    try {
+        const windowType = window.location.hash.replace("#", "") || "details";
+
+        if (windowType === "preferences" || windowType === "profiles") {
+            const detailsWindow = WebviewWindow.getByLabel('details');
+            if (detailsWindow) {
+                const detailsPos = await detailsWindow.outerPosition();
+                const detailsSize = await detailsWindow.outerSize();
+                const centerX = detailsPos.x + detailsSize.width / 2;
+                const centerY = detailsPos.y + detailsSize.height / 2;
+                const mySize = await appWindow.outerSize();
+                const newX = centerX - mySize.width / 2;
+                const newY = centerY - mySize.height / 2;
+                await appWindow.setPosition(new LogicalPosition(newX, newY));
+            }
+        }
+    } catch (e) {
+        console.error('Failed to load window position:', e);
+    }
+}
 
 window.addEventListener("DOMContentLoaded", async () => {
     await initializeTheme();
+    await loadWindowPosition();
     appWindow.show();
     appWindow.setFocus();
 });
@@ -22,7 +45,7 @@ if (exitButton) {
         if (window.location.hash === "#preferences" && app && 'handleExit' in app && typeof app.handleExit === 'function') {
             await (app as any).handleExit();
         } else {
-            await appWindow.close();
+            await appWindow.hide();
         }
     });
 }
@@ -31,8 +54,8 @@ if (minimizeButton) {
     minimizeButton.addEventListener("click", () => appWindow.minimize());
 }
 
-const target = document.querySelector("#content");
-if (!target) {
+const targetElement = document.querySelector("#content")!;
+if (!targetElement) {
     throw new Error("Could not find #content element");
 }
 
@@ -43,15 +66,15 @@ function getWindowType() {
     switch (windowType) {
         case "preferences":
             return new PreferencesWindow({
-                target
+                target: targetElement
             });
         case "profiles":
             return new ProfilesWindow({
-                target
+                target: targetElement
             });
         case "details":
             return new DetailsWindow({
-                target
+                target: targetElement
             });
         default:
             appWindow.close();
