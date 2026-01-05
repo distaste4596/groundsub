@@ -22,7 +22,8 @@
             "identifier": "groundsub",
             "shortDescription": "Modified version of threepole",
             "targets": [
-                "msi"
+                "msi",
+                "updater"
             ],
             "windows": {
                 "certificateThumbprint": null,
