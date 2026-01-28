@@ -22,6 +22,9 @@ pub struct Preferences {
     pub secondary_background: String,
     pub primary_highlight: String,
     pub clear_text_color: String,
+    pub overlay_position: String,
+    pub custom_overlay_x: i32,
+    pub custom_overlay_y: i32,
 }
 
 impl Default for Preferences {
@@ -43,6 +46,9 @@ impl Default for Preferences {
             secondary_background: "#180f1c".to_string(),
             primary_highlight: "#74259c".to_string(),
             clear_text_color: "#ffffff".to_string(),
+            overlay_position: "left".to_string(),
+            custom_overlay_x: 0,
+            custom_overlay_y: 0,
         }
     }
 }

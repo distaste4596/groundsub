@@ -18,6 +18,7 @@ use consts::{APP_NAME, APP_VER, NAMED_PIPE};
 use pollers::{
     overlay::overlay_poller,
     playerdata::{PlayerDataPoller, PlayerDataStatus},
+    timer::{TimerPoller, TimerMode},
 };
 use tauri::{
     async_runtime::{self, JoinHandle},
@@ -34,10 +35,13 @@ mod config;
 mod consts;
 mod pollers;
 
-struct ConfigContainer(Mutex<ConfigManager>);
+pub struct ConfigContainer(Mutex<ConfigManager>);
 
 #[derive(Default)]
 struct PlayerDataPollerContainer(Mutex<PlayerDataPoller>);
+
+#[derive(Default)]
+struct TimerPollerContainer(Mutex<TimerPoller>);
 
 #[derive(Default)]
 struct OverlayPollerHandle(Mutex<Option<JoinHandle<()>>>);
@@ -198,6 +202,45 @@ async fn get_playerdata(
     Ok(poller_container.0.lock().await.get_data())
 }
 
+#[tauri::command]
+async fn set_timer_mode(
+    mode: String,
+    handle: AppHandle,
+    timer_container: State<'_, TimerPollerContainer>,
+) -> Result<(), ()> {
+    let timer_mode = match mode.as_str() {
+        "persistent" => TimerMode::Persistent,
+        _ => TimerMode::Default,
+    };
+    
+    timer_container.0.lock().await.set_timer_mode(timer_mode, &handle).await;
+    Ok(())
+}
+
+#[tauri::command]
+async fn clear_timer(
+    handle: AppHandle,
+    timer_container: State<'_, TimerPollerContainer>,
+) -> Result<(), ()> {
+    timer_container.0.lock().await.clear_timer(&handle).await;
+    Ok(())
+}
+
+#[tauri::command]
+async fn clear_and_restart_timer(
+    handle: AppHandle,
+    timer_container: State<'_, TimerPollerContainer>,
+    playerdata_container: State<'_, PlayerDataPollerContainer>,
+) -> Result<(), ()> {
+    let player_data_status = playerdata_container.0.lock().await.get_data();
+    if let Some(status) = player_data_status {
+        if let Some(player_data) = status.last_update {
+            timer_container.0.lock().await.clear_and_restart_timer(&player_data, &handle).await;
+        }
+    }
+    Ok(())
+}
+
 fn open_preferences_window(handle: &AppHandle) -> Result<(), tauri::Error> {
     if let Some(w) = handle.get_window("preferences") {
         w.show()?;
@@ -310,6 +353,7 @@ async fn main() -> anyhow::Result<()> {
         .manage(ConfigContainer(Mutex::new(ConfigManager::load()?)))
         .manage(Api::default())
         .manage(PlayerDataPollerContainer::default())
+        .manage(TimerPollerContainer::default())
         .manage(OverlayPollerHandle::default())
         .system_tray(
             SystemTray::new().with_menu(
@@ -349,6 +393,9 @@ async fn main() -> anyhow::Result<()> {
             get_activity_info,
             search_profile,
             get_playerdata,
+            set_timer_mode,
+            clear_timer,
+            clear_and_restart_timer,
         ])
         .setup(|app| {
             let handle = app.handle();
@@ -371,8 +418,14 @@ async fn main() -> anyhow::Result<()> {
                 }
 
                 let poller_container = handle.state::<PlayerDataPollerContainer>();
+                let handle_clone = handle.clone();
 
                 poller_container.0.lock().await.reset(handle.clone()).await;
+                
+                {
+                    let timer_container = handle.state::<TimerPollerContainer>();
+                    timer_container.0.lock().await.reset(handle.clone()).await;
+                }
             });
 
             Ok(())

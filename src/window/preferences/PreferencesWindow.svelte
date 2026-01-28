@@ -8,6 +8,7 @@
     import * as ipc from "../../core/ipc";
     import { onMount, onDestroy } from "svelte";
     import { updateTheme, initializeTheme } from "../../core/theme";
+    import SearchableSelect from "../details/SearchableSelect.svelte";
     
     interface ColorChangeEvent extends CustomEvent {
         detail: string;
@@ -194,7 +195,7 @@
                                 >Enable overlay</StyledCheckbox
                             >
                         </div>
-<div class="preference-group">
+                        <div class="preference-group">
                             <div class="preference">
                                 <StyledCheckbox
                                     bind:checked={preferences.displayTimer}
@@ -229,6 +230,48 @@
                                 >
                             </div>
                         </div>
+                        <div class="preference-group">
+                            <div class="preference">
+                                <div class="toggle-inline">
+                                    <span class="toggle-label">Overlay position:</span>
+                                    <SearchableSelect
+                                        bind:value={preferences.overlayPosition}
+                                        options={[
+                                            { value: 'left', label: 'Left (Default)' },
+                                            { value: 'right', label: 'Right' },
+                                            { value: 'custom', label: 'Custom' }
+                                        ]}
+                                        searchable={false}
+                                        width="160px"
+                                        placeholder="Select position"
+                                    />
+                                </div>
+                            </div>
+                            {#if preferences.overlayPosition === 'custom'}
+                                <div class="preference">
+                                    <div class="toggle-inline">
+                                        <span class="toggle-label">Custom X offset:</span>
+                                        <input
+                                            type="number"
+                                            bind:value={preferences.customOverlayX}
+                                            class="number-input"
+                                            on:focus={(e) => e.currentTarget.select()}
+                                        />
+                                    </div>
+                                </div>
+                                <div class="preference">
+                                    <div class="toggle-inline">
+                                        <span class="toggle-label">Custom Y offset:</span>
+                                        <input
+                                            type="number"
+                                            bind:value={preferences.customOverlayY}
+                                            class="number-input"
+                                            on:focus={(e) => e.currentTarget.select()}
+                                        />
+                                    </div>
+                                </div>
+                            {/if}
+                        </div>
                     </div>
                 {:else if activeTab === 'details'}
                     <div class="tab-panel">
@@ -247,22 +290,16 @@
                             <div class="preference">
                                 <div class="toggle-inline">
                                     <span class="toggle-label">Raid link provider:</span>
-                                    <div class="toggle-switch">
-                                        <button 
-                                            type="button"
-                                            class="toggle-option {preferences.raidLinkProvider === 'raid.report' ? 'active' : ''}"
-                                            on:click={() => preferences.raidLinkProvider = 'raid.report'}
-                                        >
-                                            raid.report
-                                        </button>
-                                        <button 
-                                            type="button"
-                                            class="toggle-option {preferences.raidLinkProvider === 'raidhub.io' ? 'active' : ''}"
-                                            on:click={() => preferences.raidLinkProvider = 'raidhub.io'}
-                                        >
-                                            raidhub.io
-                                        </button>
-                                    </div>
+                                    <SearchableSelect
+                                        bind:value={preferences.raidLinkProvider}
+                                        options={[
+                                            { value: 'raid.report', label: 'raid.report' },
+                                            { value: 'raidhub.io', label: 'raidhub.io' }
+                                        ]}
+                                        searchable={false}
+                                        width="160px"
+                                        placeholder="Select provider"
+                                    />
                                 </div>
                             </div>
                         </div>
@@ -333,7 +370,7 @@
         margin: 12px 48px 16px 48px;
         display: flex;
         flex-direction: column;
-        min-height: 400px;
+        height: 400px;
     }
 
     .tab-navigation {
@@ -379,8 +416,8 @@
     }
 
     .preference-group {
-        padding: 8px 12px;
-        margin: 8px 0;
+        padding: 5px 12px;
+        margin: 6px 0;
         border: 1px solid rgba(255, 255, 255, 0.1);
         border-radius: 4px;
         min-height: auto;
@@ -438,46 +475,43 @@
         color: rgba(255, 255, 255, 0.9);
         font-size: 14px;
         flex-shrink: 0;
+        width: 106px;
     }
 
-    .toggle-switch {
-        display: flex;
-        background: rgba(255, 255, 255, 0.05);
+    .number-input {
+        appearance: none;
+        -webkit-appearance: none;
+        -moz-appearance: none;
+        background: rgba(255, 255, 255, 0.035);
+        backdrop-filter: blur(8px);
+        border: 1px solid rgba(255, 255, 255, 0.06);
         border-radius: 0;
-        padding: 2px;
-        border: 1px solid rgba(255, 255, 255, 0.1);
-        transition: all 0.2s ease;
-        min-width: 160px;
-    }
-
-    .toggle-option {
-        flex: 1;
         padding: 6px 10px;
-        background: transparent;
-        border: none;
-        border-radius: 0;
-        color: rgba(255, 255, 255, 0.7);
-        font-size: 14px;
-        cursor: pointer;
-        transition: all 0.2s ease;
-        font-weight: 400;
-    }
-
-    .toggle-option:hover {
         color: rgba(255, 255, 255, 0.9);
-        background: rgba(255, 255, 255, 0.05);
+        font-size: 13px;
+        width: 80px;
+        height: 32px;
+        box-sizing: border-box;
+        transition: all 0.1s ease;
+        font-family: inherit;
+        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
+        -moz-appearance: textfield;
     }
 
-    .toggle-option.active {
-        background: var(--primary-highlight);
-        color: white;
-        font-weight: 400;
-        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+    .number-input::-webkit-outer-spin-button,
+    .number-input::-webkit-inner-spin-button {
+        -webkit-appearance: none;
+        margin: 0;
     }
 
-    .toggle-option.active:hover {
-        background: var(--primary-highlight);
-        filter: brightness(1.1);
+    .number-input:hover {
+        background: rgba(255, 255, 255, 0.08);
+        border-color: rgba(255, 255, 255, 0.2);
+    }
+
+    .number-input:focus {
+        outline: none;
+        border-color: var(--primary-highlight);
     }
 
 </style>

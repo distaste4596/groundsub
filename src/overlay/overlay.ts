@@ -7,7 +7,7 @@ import { emit, listen } from "@tauri-apps/api/event";
 import { countClears, determineActivityType } from "../core/util";
 import { getPlayerdata, getPreferences } from "../core/ipc";
 import { THEME_UPDATE_EVENT } from "../core/theme";
-import { type TimerState } from "../core/timer";
+import { type TimerState } from "../core/types";
 import { GROUPED_RAIDS, GROUPED_DUNGEONS, KNOWN_RAIDS, KNOWN_DUNGEONS } from "../core/consts";
 
 const widgetElem = document.querySelector<HTMLElement>("#widget")!;
@@ -427,6 +427,19 @@ function applyPreferences(p: Preferences) {
             svg.classList.add("hidden");
         }
     });
+
+    if (widgetElem) {
+        widgetElem.classList.remove("position-left", "position-right", "position-custom");
+        widgetElem.style.transform = "";
+        if (p.overlayPosition === "right") {
+            widgetElem.classList.add("position-right");
+        } else if (p.overlayPosition === "custom") {
+            widgetElem.classList.add("position-custom");
+            widgetElem.style.transform = `translate(${p.customOverlayX}px, ${p.customOverlayY}px)`;
+        } else {
+            widgetElem.classList.add("position-left");
+        }
+    }
 
     if (useRealTimeChanged) {
         updateTimespanText();

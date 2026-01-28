@@ -40,3 +40,15 @@ export function searchProfile(displayName: string, displayNameCode: number): Pro
 export function getPlayerdata(): Promise<PlayerDataStatus | null> {
     return invoke("get_playerdata");
 }
+
+export function setTimerMode(mode: 'default' | 'persistent'): Promise<void> {
+    return invoke("set_timer_mode", { mode });
+}
+
+export function clearTimer(): Promise<void> {
+    return invoke("clear_timer");
+}
+
+export function clearAndRestartTimer(): Promise<void> {
+    return invoke("clear_and_restart_timer");
+}

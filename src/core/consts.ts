@@ -60,6 +60,11 @@ export const ACTIVITY_ALIASES = {
     "ron": "root-of-nightmares",
     "se": "salvations-edge",
     "dp": "the-desert-perpetual",
+
+    "gotd": "ghosts-of-the-deep",
+    "wr": "warlord-s-ruin",
+    "vh": "vesper-s-host",
+    "sd": "the-sundered-doctrine",
 };
 
 function generateGroupedActivities(activities: Record<number, string>) {

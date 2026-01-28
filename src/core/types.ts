@@ -44,6 +44,9 @@ export type Preferences = {
     filterTimespan: string;
     timerMode: 'default' | 'persistent';
     raidLinkProvider: 'raid.report' | 'raidhub.io';
+    overlayPosition: 'left' | 'right' | 'custom';
+    customOverlayX: number;
+    customOverlayY: number;
 };
 
 export type PlayerDataStatus = {
@@ -79,3 +82,10 @@ export type CompletedActivity = {
     activityHash: number;
     modes: number[];
 };
+
+export interface TimerState {
+    timeText: string;
+    msText: string;
+    isActive: boolean;
+    mode: 'default' | 'persistent';
+}

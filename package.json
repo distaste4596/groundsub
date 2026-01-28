@@ -1,7 +1,7 @@
 {
     "name": "groundsub",
     "private": true,
-    "version": "1.0.3",
+    "version": "1.0.4",
     "type": "module",
     "scripts": {
         "dev": "vite",
@@ -16,8 +16,8 @@
         "@tsconfig/svelte": "^5.0.4",
         "svelte": "^4.2.19",
         "svelte-preprocess": "^5.1.4",
-        "typescript": "^5.4.5",
-        "vite": "^5.3.1"
+        "typescript": "5.9.3",
+        "vite": "5.4.21"
     },
     "resolutions": {
         "esbuild": "^0.25.5"

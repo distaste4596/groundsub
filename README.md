@@ -5,6 +5,9 @@ For support or questions, contact **xxccss** on Discord.
 groundsub is a modified version of  
 https://github.com/dessh/threepole
 
+**If the timer is inaccurate, synchronize your Windows time settings.  
+Automatic synchronization can also be enabled through Windows Services.  
+Open Services -> Windows Time -> Properties -> Startup type: Automatic -> Apply**
 
 ---
 
@@ -41,6 +44,7 @@ https://github.com/dessh/threepole
 **Overlay**
 - Toggle timer
 - Toggle icons
+- Overlay position
 
 **Details**
 - Show timestamps instead of elapsed time

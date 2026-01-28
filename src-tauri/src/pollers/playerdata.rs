@@ -2,7 +2,7 @@ use std::{sync::Arc, time::Duration};
 
 use anyhow::{anyhow, bail, Result};
 use chrono::{DateTime, Utc};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use tauri::{
     async_runtime::{self, JoinHandle},
     AppHandle, Manager,
@@ -20,28 +20,28 @@ use crate::{
     ConfigContainer,
 };
 
-#[derive(Serialize, Clone)]
+#[derive(Serialize, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PlayerData {
-    current_activity: CurrentActivity,
-    activity_history: Vec<CompletedActivity>,
-    profile_info: ProfileInfo,
+    pub current_activity: CurrentActivity,
+    pub activity_history: Vec<CompletedActivity>,
+    pub profile_info: ProfileInfo,
 }
 
-#[derive(Serialize, Default, Clone)]
+#[derive(Serialize, Default, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PlayerDataStatus {
-    last_update: Option<PlayerData>,
-    error: Option<String>,
-    history_loading: bool,
+    pub last_update: Option<PlayerData>,
+    pub error: Option<String>,
+    pub history_loading: bool,
 }
 
-#[derive(Serialize, Clone)]
+#[derive(Serialize, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
-struct CurrentActivity {
-    start_date: DateTime<Utc>,
-    activity_hash: usize,
-    activity_info: Option<ActivityInfo>,
+pub struct CurrentActivity {
+    pub start_date: DateTime<Utc>,
+    pub activity_hash: usize,
+    pub activity_info: Option<ActivityInfo>,
 }
 
 #[derive(Default)]
@@ -64,7 +64,7 @@ impl PlayerDataPoller {
                 history_loading: false,
             };
 
-            send_data_update(&app_handle, lock.clone());
+            send_data_update(&app_handle, lock.clone()).await;
         }
 
         let playerdata_clone = self.current_playerdata.clone();
@@ -80,7 +80,7 @@ impl PlayerDataPoller {
                         let mut lock = playerdata_clone.lock().await;
                         lock.error = Some("No profile set".to_string());
 
-                        send_data_update(&app_handle, lock.clone());
+                        send_data_update(&app_handle, lock.clone()).await;
                         return;
                     }
                 }
@@ -96,7 +96,7 @@ impl PlayerDataPoller {
                         let mut lock = playerdata_clone.lock().await;
                         lock.error = Some(format!("Failed to get profile info: {e}"));
 
-                        send_data_update(&app_handle, lock.clone());
+                        send_data_update(&app_handle, lock.clone()).await;
                         return;
                     }
                 }
@@ -122,11 +122,11 @@ impl PlayerDataPoller {
 
                         lock.last_update = Some(playerdata);
                         lock.history_loading = true;
-                        send_data_update(&app_handle, lock.clone());
+                        send_data_update(&app_handle, lock.clone()).await;
                     }
                     Err(e) => {
                         lock.error = Some(e.to_string());
-                        send_data_update(&app_handle, lock.clone());
+                        send_data_update(&app_handle, lock.clone()).await;
                         return;
                     }
                 }
@@ -136,7 +136,7 @@ impl PlayerDataPoller {
                 let mut lock = playerdata_clone.lock().await;
                 lock.error = Some(format!("Failed to load activity history: {e}"));
                 lock.history_loading = false;
-                send_data_update(&app_handle, lock.clone());
+                send_data_update(&app_handle, lock.clone()).await;
             }
 
             let mut count = 0;
@@ -159,13 +159,13 @@ impl PlayerDataPoller {
                         lock.error = None;
                         lock.last_update = Some(last_update);
 
-                        send_data_update(&app_handle, lock.clone())
+                        send_data_update(&app_handle, lock.clone()).await;
                     }
                     Err(e) => {
                         let mut lock = playerdata_clone.lock().await;
                         lock.error = Some(e.to_string());
 
-                        send_data_update(&app_handle, lock.clone())
+                        send_data_update(&app_handle, lock.clone()).await;
                     }
                     _ => (),
                 }
@@ -183,14 +183,23 @@ impl PlayerDataPoller {
     }
 }
 
-fn send_data_update(handle: &AppHandle, data: PlayerDataStatus) {
-
+async fn send_data_update(handle: &AppHandle, data: PlayerDataStatus) {
     if let Some(o) = handle.get_window("overlay") {
         o.emit("playerdata_update", data.clone()).unwrap();
     }
 
     if let Some(o) = handle.get_window("details") {
-        o.emit("playerdata_update", data).unwrap();
+        o.emit("playerdata_update", data.clone()).unwrap();
+    }
+    
+    if let Some(ref player_data) = data.last_update {
+        if let Some(timer_container) = handle.try_state::<crate::TimerPollerContainer>() {
+            let handle_clone = handle.clone();
+            let player_data_clone = player_data.clone();
+            let timer_container_clone = timer_container.clone();
+            
+            timer_container_clone.0.lock().await.update_from_player_data(&player_data_clone, &handle_clone).await;
+        }
     }
 }
 
@@ -371,7 +380,7 @@ async fn load_history_incremental(
                         let mut lock = playerdata_clone.lock().await;
                         if let Some(ref mut last_update) = lock.last_update {
                             last_update.activity_history.extend(chunk.to_vec());
-                            send_data_update(&handle, lock.clone());
+                            send_data_update(&handle, lock.clone()).await;
                         }
                     }
                     activities_sent += send_count;
@@ -391,7 +400,7 @@ async fn load_history_incremental(
                         let mut lock = playerdata_clone.lock().await;
                         if let Some(ref mut last_update) = lock.last_update {
                             last_update.activity_history = master_list[0..activities_sent + send_count].to_vec();
-                            send_data_update(&handle, lock.clone());
+                            send_data_update(&handle, lock.clone()).await;
                         }
                     }
                     last_ui_update = now;
@@ -427,7 +436,7 @@ async fn load_history_incremental(
             let mut lock = playerdata_clone.lock().await;
             if let Some(ref mut last_update) = lock.last_update {
                 last_update.activity_history = master_list[0..activities_sent + send_count].to_vec();
-                send_data_update(&handle, lock.clone());
+                send_data_update(&handle, lock.clone()).await;
             }
         }
         activities_sent += send_count;
@@ -440,7 +449,7 @@ async fn load_history_incremental(
     {
         let mut lock = playerdata_clone.lock().await;
         lock.history_loading = false;
-        send_data_update(&handle, lock.clone());
+        send_data_update(&handle, lock.clone()).await;
     }
 
     Ok(())

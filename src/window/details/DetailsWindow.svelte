@@ -22,13 +22,22 @@
     import SearchableSelect from "./SearchableSelect.svelte";
     import * as ipc from "../../core/ipc";
     import { emit } from '@tauri-apps/api/event';
-    import { createTimer, type TimerState, type Timer } from "../../core/timer";
 
-    let timer = createTimer({ displayMilliseconds: true });
-    let timerState: TimerState = timer.getState();
+    let timerState: {
+        timeText: string;
+        msText: string;
+        isActive: boolean;
+        mode: 'default' | 'persistent';
+    } = {
+        timeText: "",
+        msText: "",
+        isActive: false,
+        mode: 'default'
+    };
     let timerMode: 'default' | 'persistent' = 'default';
     let lastTrackedActivityName: string = '';
     let lastTrackedActivityType: string = '';
+    let lastProfileKey: string = '';
 
     let playerData: PlayerData | undefined;
     let error: string | undefined;
@@ -51,7 +60,10 @@
         filterActivityType: 'all',
         filterTimespan: '1',
         timerMode: 'default',
-        raidLinkProvider: 'raid.report'
+        raidLinkProvider: 'raid.report',
+        overlayPosition: 'left',
+        customOverlayX: 0,
+        customOverlayY: 0
     };
 
     let activityInfoMap: { [hash: number]: ActivityInfo } = {};
@@ -228,22 +240,32 @@
         playerData?.currentActivity?.activityInfo?.activityModes || []
     )
 
-    timer.subscribe((state) => {
-        timerState = state;
-        timerMode = state.mode;
-        emit('timer-state-update', state).catch(console.error);
+    $: isInOrbit = playerData?.currentActivity?.activityHash === 0;
+
+    $: if (!isInOrbit && playerData?.currentActivity?.activityInfo && activityType) {
+        if (timerMode !== 'persistent' || 
+            (lastTrackedActivityName !== playerData.currentActivity.activityInfo.name)) {
+            lastTrackedActivityName = playerData.currentActivity.activityInfo.name;
+            lastTrackedActivityType = activityType;
+        }
+    } else if (isInOrbit) {
+    }
+
+    listen('timer-state-update', (event: any) => {
+        timerState = event.payload;
+        timerMode = event.payload.mode;
     });
 
     function toggleTimerMode() {
         const newMode = timerMode === 'default' ? 'persistent' : 'default';
-        timer.setMode(newMode);
         timerMode = newMode;
-
+        
+        ipc.setTimerMode(newMode).catch(console.error);
         saveTimerModeToConfig(newMode);
     }
 
     function refreshPersistentTimer() {
-        timer.clearActivity();
+        ipc.clearAndRestartTimer().catch(console.error);
         lastTrackedActivityName = '';
         lastTrackedActivityType = '';
     }
@@ -259,25 +281,6 @@
         } catch (error) {
             console.error('Failed to save timer mode:', error);
         }
-    }
-
-    $: isInOrbit = playerData?.currentActivity?.activityHash === 0;
-
-    $: if (!isInOrbit && playerData?.currentActivity?.activityInfo && activityType) {
-        if (timer.getMode() !== 'persistent' || 
-            (!timer.isTrackingActivity(playerData.currentActivity.activityHash) && 
-             !timer.wasRecentlyCompleted(playerData.currentActivity.activityHash))) {
-            lastTrackedActivityName = playerData.currentActivity.activityInfo.name;
-            lastTrackedActivityType = activityType;
-            timer.startActivity(playerData.currentActivity, playerData.activityHistory);
-        }
-    } else if (isInOrbit) {
-    } else if (timer.getMode() === 'default') {
-        timer.stop();
-    }
-
-    $: if (playerData?.activityHistory && timer.getMode() === 'persistent') {
-        timer.checkActivityCompleted(playerData.activityHistory);
     }
 
     let activityInfoLoadingMap: { [hash: number]: Promise<ActivityInfo> } = {};
@@ -353,7 +356,7 @@
         selectedActivityType = savedPrefs.filterActivityType || 'all';
         selectedTimespan = (savedPrefs.filterTimespan || '1') as '1' | '7' | '30';
         timerMode = savedPrefs.timerMode || 'default';
-        timer.setMode(timerMode);
+        ipc.setTimerMode(timerMode).catch(console.error);
 
         handleUpdate(await ipc.getPlayerdata());
 
@@ -411,16 +414,16 @@
                     {#if timerMode === 'persistent' && timerState.timeText === "--:--:--"}
                         <h1>{timerState.timeText}<span class="small grey">{timerState.msText}</span></h1>
                         <h2 class="grey">WAITING FOR NEW ACTIVITY</h2>
-                    {:else if activityType}
+                    {:else if activityType && timerState.timeText !== ""}
                         <h1>
                             {timerState.timeText}<span class="small grey">{timerState.msText}</span>
                         </h1>
                         <h2 class="grey">
-                            {playerData.currentActivity.activityInfo.name.toUpperCase()} ({activityType})
+                            {playerData.currentActivity.activityInfo.name.toUpperCase()}
                         </h2>
-                    {:else if timerMode === 'persistent' && timerState.isActive && lastTrackedActivityName}
+                    {:else if timerMode === 'persistent' && lastTrackedActivityName && timerState.timeText !== "" && (timerState.isActive || isInOrbit)}
                         <h1>{timerState.timeText}<span class="small grey">{timerState.msText}</span></h1>
-                        <h2 class="grey">{lastTrackedActivityName.toUpperCase()} ({lastTrackedActivityType || 'Activity'})</h2>
+                        <h2 class="grey">{lastTrackedActivityName.toUpperCase()}</h2>
                     {:else}
                         <h1 class="small">
                             {playerData.profileInfo.displayName}<span
@@ -428,7 +431,7 @@
                                 >#{playerData.profileInfo.displayTag}</span
                             >
                         </h1>
-                        <h2 class="grey">{playerData.currentActivity?.activityInfo?.name?.toUpperCase() ?? "NOT IN ACTIVITY"} (Unknown)</h2>
+                        <h2 class="grey">NOT IN ACTIVITY</h2>
                     {/if}
                 {:else}
                     <h1 class="small">Error</h1>
