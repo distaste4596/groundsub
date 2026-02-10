@@ -11,12 +11,12 @@
     export let activityInfo: ActivityInfo | undefined;
     export let showTimestamp = false;
     export let raidLinkProvider: string = 'raid.report';
-    
+
     let displayText = '';
     let displayName = '';
     let lastActivityHash: number | undefined;
     let isLoading = false;
-    
+
     $: {
         updateDisplayText();
         if (lastActivityHash !== activity.activityHash) {
@@ -29,7 +29,7 @@
     $: if (activityInfo) {
         updateDisplayName();
     }
-    
+
     function updateDisplayText() {
         displayText = getTimeDisplay();
     }
@@ -38,14 +38,14 @@
         if (isLoading && activityInfo) {
             isLoading = false;
         }
-        
+
         if (!activityInfo || isLoading) {
             displayName = 'Loading...';
             return;
         }
-        
+
         displayName = activityInfo.name;
-        
+
         const allMasterActivities: Record<number, boolean> = {
             ...Object.entries(KNOWN_RAIDS)
                 .filter(([_, name]) => name.includes('(Master)'))
@@ -54,7 +54,7 @@
                 .filter(([_, name]) => name.includes('(Master)'))
                 .reduce((acc, [hash, _]) => ({ ...acc, [parseInt(hash)]: true }), {})
         };
-        
+
         if (allMasterActivities[activity.activityHash]) {
             displayName = displayName.replace(/\s*\(Master\)/g, '') + ' (Master)';
         }
@@ -62,7 +62,7 @@
 
     $: reportUrl = (() => {
         const activityType = determineActivityType(activity.modes);
-        
+
         switch (activityType) {
             case "Dungeon":
                 return `https://dungeon.report/pgcr/${activity.instanceId}`;
@@ -77,7 +77,7 @@
         if (showTimestamp) {
             const endTime = new Date(activity.period);
             endTime.setSeconds(endTime.getSeconds() + activity.activityDurationSeconds);
-           
+
             const year = endTime.getFullYear();
             const month = String(endTime.getMonth() + 1).padStart(2, '0');
             const day = String(endTime.getDate()).padStart(2, '0');
@@ -86,7 +86,7 @@
                 minute: '2-digit',
                 hour12: true
             });
-            
+
             return `${year}-${month}-${day}, ${timeString}`;
         } else {
             let millis =

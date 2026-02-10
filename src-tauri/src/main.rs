@@ -117,7 +117,10 @@ async fn set_profiles(
         open_details_window(&handle, true).unwrap();
     }
 
-    poller_container.0.lock().await.reset(handle).await;
+    poller_container.0.lock().await.reset(handle.clone()).await;
+
+    let timer_container = handle.state::<TimerPollerContainer>();
+    timer_container.0.lock().await.reset(handle.clone()).await;
 
     Ok(())
 }
@@ -235,7 +238,7 @@ async fn clear_and_restart_timer(
     let player_data_status = playerdata_container.0.lock().await.get_data();
     if let Some(status) = player_data_status {
         if let Some(player_data) = status.last_update {
-            timer_container.0.lock().await.clear_and_restart_timer(&player_data, &handle).await;
+        timer_container.0.lock().await.clear_and_restart_timer(&player_data, &handle).await;
         }
     }
     Ok(())

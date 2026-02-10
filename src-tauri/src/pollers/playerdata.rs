@@ -16,7 +16,7 @@ use crate::{
         Api, ApiError, Source,
     },
     config::profiles::Profile,
-    consts::{DUNGEON_ACTIVITY_MODE, RAID_ACTIVITY_MODE, STRIKE_ACTIVITY_MODE, LOSTSECTOR_ACTIVITY_MODE},
+    consts::{DUNGEON_ACTIVITY_MODE, EXCLUDED_ACTIVITY_HASHES, RAID_ACTIVITY_MODE, STRIKE_ACTIVITY_MODE, LOSTSECTOR_ACTIVITY_MODE, STORY_ACTIVITY_MODE},
     ConfigContainer,
 };
 
@@ -94,7 +94,7 @@ impl PlayerDataPoller {
                     Ok(p) => p,
                     Err(e) => {
                         let mut lock = playerdata_clone.lock().await;
-                        lock.error = Some(format!("Failed to get profile info: {e}"));
+                        lock.error = Some(e.to_string());
 
                         send_data_update(&app_handle, lock.clone()).await;
                         return;
@@ -107,7 +107,7 @@ impl PlayerDataPoller {
                 activity_hash: 0,
                 activity_info: None,
             };
-            
+
             let res = update_current(&app_handle, &mut current_activity, &profile).await;
 
             {
@@ -134,7 +134,7 @@ impl PlayerDataPoller {
 
             if let Err(e) = load_history_incremental(&app_handle, &playerdata_clone, &profile).await {
                 let mut lock = playerdata_clone.lock().await;
-                lock.error = Some(format!("Failed to load activity history: {e}"));
+                lock.error = Some(e.to_string());
                 lock.history_loading = false;
                 send_data_update(&app_handle, lock.clone()).await;
             }
@@ -191,13 +191,13 @@ async fn send_data_update(handle: &AppHandle, data: PlayerDataStatus) {
     if let Some(o) = handle.get_window("details") {
         o.emit("playerdata_update", data.clone()).unwrap();
     }
-    
+
     if let Some(ref player_data) = data.last_update {
         if let Some(timer_container) = handle.try_state::<crate::TimerPollerContainer>() {
             let handle_clone = handle.clone();
             let player_data_clone = player_data.clone();
             let timer_container_clone = timer_container.clone();
-            
+
             timer_container_clone.0.lock().await.update_from_player_data(&player_data_clone, &handle_clone).await;
         }
     }
@@ -206,7 +206,7 @@ async fn send_data_update(handle: &AppHandle, data: PlayerDataStatus) {
 fn dedup_activities_prioritizing_completed(activities: Vec<CompletedActivity>) -> Vec<CompletedActivity> {
     let mut deduped_activities = Vec::new();
     let mut seen_instances = std::collections::HashSet::new();
-    
+
     for activity in activities {
         let instance_key = &activity.instance_id;
         if seen_instances.insert(instance_key.clone()) {
@@ -219,7 +219,7 @@ fn dedup_activities_prioritizing_completed(activities: Vec<CompletedActivity>) -
             }
         }
     }
-    
+
     deduped_activities
 }
 
@@ -312,7 +312,7 @@ async fn load_history_incremental(
 
 
     let profile_info = api.profile_info_source.lock().await.get(profile).await?;
-    
+
     let mut all_activities: Vec<CompletedActivity> = Vec::new();
     let mut master_list: Vec<CompletedActivity> = Vec::new();
     let mut activities_sent = 0;
@@ -329,7 +329,7 @@ async fn load_history_incremental(
 
         loop {
             total_api_calls += 1;
-            
+
             let api_start = std::time::Instant::now();
             let history = Api::get_activity_history(profile, character_id, page).await?;
             let api_duration = api_start.elapsed();
@@ -350,24 +350,25 @@ async fn load_history_incremental(
                 if activity.period < cutoff {
                     includes_past_cutoff = true;
                 } else if activity.modes.iter().any(|m| {
-                    *m == RAID_ACTIVITY_MODE
-                        || *m == DUNGEON_ACTIVITY_MODE
-                        || *m == STRIKE_ACTIVITY_MODE
-                        || *m == LOSTSECTOR_ACTIVITY_MODE
-                }) {
+                    *m == RAID_ACTIVITY_MODE ||
+                    *m == DUNGEON_ACTIVITY_MODE ||
+                    *m == STRIKE_ACTIVITY_MODE ||
+                    *m == LOSTSECTOR_ACTIVITY_MODE ||
+                    *m == STORY_ACTIVITY_MODE
+                }) && !EXCLUDED_ACTIVITY_HASHES.contains(&activity.activity_hash) {
                     all_activities.push(activity);
                     valid_activities_this_page += 1;
                 }
             }
-            
+
 
             let previous_master_len = master_list.len();
             master_list.extend(all_activities[previous_master_len..].to_vec());
-            
+
             master_list.sort();
             master_list.reverse();
             master_list = dedup_activities_prioritizing_completed(master_list);
-            
+
             all_activities.sort();
             all_activities.reverse();
 
@@ -390,11 +391,11 @@ async fn load_history_incremental(
                 let send_count = std::cmp::min(BATCH_SIZE, remaining);
                 let end_index = std::cmp::min(activities_sent + send_count, master_list.len());
                 let chunk = &master_list[activities_sent..end_index];
-                
+
                 let now = std::time::Instant::now();
-                let should_update = now.duration_since(last_ui_update) >= UI_UPDATE_INTERVAL || 
+                let should_update = now.duration_since(last_ui_update) >= UI_UPDATE_INTERVAL ||
                                    activities_sent + send_count >= master_list.len();
-                
+
                 if should_update {
                     {
                         let mut lock = playerdata_clone.lock().await;
@@ -408,7 +409,7 @@ async fn load_history_incremental(
                 } else {
                     activities_sent += send_count;
                 }
-                
+
                 if activities_sent < master_list.len() {
                     tokio::time::sleep(Duration::from_millis(200)).await;
                 }
@@ -425,9 +426,9 @@ async fn load_history_incremental(
 
     master_list.sort();
     master_list.reverse();
-    
+
     master_list = dedup_activities_prioritizing_completed(master_list);
-    
+
     while activities_sent < master_list.len() {
         let remaining = master_list.len() - activities_sent;
         let send_count = std::cmp::min(BATCH_SIZE, remaining);
@@ -487,11 +488,12 @@ async fn update_history(
                 if activity.period < cutoff {
                     includes_past_cutoff = true;
                 } else if activity.modes.iter().any(|m| {
-                    *m == RAID_ACTIVITY_MODE
-                        || *m == DUNGEON_ACTIVITY_MODE
-                        || *m == STRIKE_ACTIVITY_MODE
-                        || *m == LOSTSECTOR_ACTIVITY_MODE
-                }) {
+                    *m == RAID_ACTIVITY_MODE ||
+                    *m == DUNGEON_ACTIVITY_MODE ||
+                    *m == STRIKE_ACTIVITY_MODE ||
+                    *m == LOSTSECTOR_ACTIVITY_MODE ||
+                    *m == STORY_ACTIVITY_MODE
+                }) && !EXCLUDED_ACTIVITY_HASHES.contains(&activity.activity_hash) {
                     past_activities.push(activity);
                 }
             }
@@ -514,9 +516,9 @@ async fn update_history(
 
     past_activities.sort();
     past_activities.reverse();
-    
+
     past_activities = dedup_activities_prioritizing_completed(past_activities);
-    
+
     *last_history = past_activities;
 
     Ok(true)

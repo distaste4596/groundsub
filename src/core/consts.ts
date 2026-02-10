@@ -4,6 +4,7 @@ export const REPOSITORY_LINK_ISSUES = "https://github.com/distaste4596/groundsub
 export const BUNGIE_API_STATUS = "https://help.bungie.net/hc/en-us/articles/360049199271-Destiny-Server-and-Update-Status"
 
 export const ACTIVITY_TYPES: Record<number, string> = {
+    2: "Story",
     4: "Raid",
     82: "Dungeon",
     18: "Strike",
@@ -85,3 +86,7 @@ function generateGroupedActivities(activities: Record<number, string>) {
 
 export const GROUPED_RAIDS = generateGroupedActivities(KNOWN_RAIDS);
 export const GROUPED_DUNGEONS = generateGroupedActivities(KNOWN_DUNGEONS);
+
+export const EXCLUDED_ACTIVITIES: number[] = [
+    3830679567, // Shooting Range
+];

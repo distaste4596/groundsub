@@ -6,6 +6,7 @@ use tokio::sync::Mutex;
 
 use crate::{
     api::responses::CompletedActivity,
+    consts::EXCLUDED_ACTIVITY_HASHES,
     pollers::playerdata::{CurrentActivity, PlayerData},
 };
 
@@ -75,7 +76,7 @@ impl Timer {
         let old_mode = state.mode.clone();
         state.mode = mode.clone();
         drop(state);
-        
+
         self.emit_state_update(app_handle).await;
     }
 
@@ -96,7 +97,7 @@ impl Timer {
 
     async fn should_start_activity(&self, activity: &CurrentActivity, activity_history: &[CompletedActivity]) -> bool {
         let state = self.state.lock().await;
-        
+
         if state.mode == TimerMode::Persistent {
             if let Some(ref last_activity) = self.last_activity {
                 if last_activity.activity_hash == activity.activity_hash && self.end_time.is_none() {
@@ -121,7 +122,7 @@ impl Timer {
 
     pub async fn check_activity_completed(&mut self, activity_history: &[CompletedActivity], app_handle: &AppHandle) {
         let state = self.state.lock().await;
-        
+
         if state.mode != TimerMode::Persistent || self.last_activity.is_none() || activity_history.is_empty() {
             return;
         }
@@ -138,19 +139,19 @@ impl Timer {
         if let Some(ref last_activity) = self.last_activity {
             if most_recent_activity.activity_hash == last_activity.activity_hash {
                 drop(state);
-                
+
                 if let Some(handle) = self.interval_handle.take() {
                     handle.abort();
                 }
-                
+
                 self.end_time = Some(Utc::now());
                 {
                     let mut state = self.state.lock().await;
                     state.is_active = false;
                 }
-                
+
                 self.emit_state_update(app_handle).await;
-                
+
                 let state_clone = self.state.clone();
                 let app_handle_clone = app_handle.clone();
                 tokio::spawn(async move {
@@ -166,7 +167,7 @@ impl Timer {
                         let _ = window.emit("timer-state-update", &*state);
                     }
                 });
-                
+
                 self.last_activity = None;
             }
         }
@@ -256,7 +257,9 @@ impl Timer {
         self.last_activity = None;
         self.end_time = None;
 
-        if player_data.current_activity.activity_hash != 0 {
+        if player_data.current_activity.activity_hash != 0
+            && !EXCLUDED_ACTIVITY_HASHES.contains(&player_data.current_activity.activity_hash)
+        {
             if let Some(ref activity_info) = player_data.current_activity.activity_info {
                 if self.should_have_timer(activity_info) {
                     self.start_activity(&player_data.current_activity, &player_data.activity_history, app_handle).await;
@@ -288,16 +291,19 @@ impl Timer {
     }
 
     fn should_have_timer(&self, activity_info: &crate::api::responses::ActivityInfo) -> bool {
+        const STORY_ACTIVITY_MODE: u32 = 2;
         const RAID_ACTIVITY_MODE: u32 = 4;
         const DUNGEON_ACTIVITY_MODE: u32 = 16;
         const STRIKE_ACTIVITY_MODE: u32 = 18;
         const LOSTSECTOR_ACTIVITY_MODE: u32 = 82;
 
         activity_info.activity_modes.iter().any(|&mode| {
-            (mode as u32) == RAID_ACTIVITY_MODE || 
-            (mode as u32) == DUNGEON_ACTIVITY_MODE || 
-            (mode as u32) == STRIKE_ACTIVITY_MODE || 
-            (mode as u32) == LOSTSECTOR_ACTIVITY_MODE
+            let mode = mode as u32;
+            mode == STORY_ACTIVITY_MODE ||
+            mode == RAID_ACTIVITY_MODE ||
+            mode == DUNGEON_ACTIVITY_MODE ||
+            mode == STRIKE_ACTIVITY_MODE ||
+            mode == LOSTSECTOR_ACTIVITY_MODE
         })
     }
 
@@ -317,20 +323,18 @@ impl Timer {
         }
 
         let handle = tokio::spawn(async move {
-            let mut interval = tokio::time::interval(Duration::from_millis(1000 / update_rate));
-            interval.tick().await;
             let mut tick_count = 0u64;
 
             loop {
-                interval.tick().await;
+                tokio::time::sleep(Duration::from_millis(1000 / update_rate)).await;
                 tick_count += 1;
-                
-                if tick_count > 43200 * update_rate {
+
+                if tick_count > 3600 * update_rate {
                     if start_time.is_none() {
                         break;
                     }
                 }
-                
+
                 if let Some(start_time) = start_time {
                     let elapsed = Utc::now() - start_time;
                     let millis = elapsed.num_milliseconds() as u64;
@@ -418,25 +422,17 @@ impl TimerPoller {
             t.abort();
         }
 
-        let timer_clone = self.timer.clone();
-        let app_handle_clone = app_handle.clone();
-
-        self.task_handle = Some(tokio::spawn(async move {
-            let mut interval = tokio::time::interval(Duration::from_millis(16));
-            
-            loop {
-                interval.tick().await;
-                
-                tokio::time::sleep(Duration::from_millis(100)).await;
-            }
-        }));
+        let mut timer = self.timer.lock().await;
+        timer.reset(&app_handle).await;
     }
 
     pub async fn update_from_player_data(&self, player_data: &PlayerData, app_handle: &AppHandle) {
         let mut timer = self.timer.lock().await;
-        
+
         if timer.get_mode().await == TimerMode::Persistent {
-            timer.check_activity_completed(&player_data.activity_history, app_handle).await;
+            timer
+                .check_activity_completed(&player_data.activity_history, app_handle)
+                .await;
         }
         if player_data.current_activity.activity_hash == 0 {
             if timer.get_mode().await == TimerMode::Default {

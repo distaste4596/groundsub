@@ -8,7 +8,7 @@ import { countClears, determineActivityType } from "../core/util";
 import { getPlayerdata, getPreferences } from "../core/ipc";
 import { THEME_UPDATE_EVENT } from "../core/theme";
 import { type TimerState } from "../core/types";
-import { GROUPED_RAIDS, GROUPED_DUNGEONS, KNOWN_RAIDS, KNOWN_DUNGEONS } from "../core/consts";
+import { GROUPED_RAIDS, GROUPED_DUNGEONS, KNOWN_RAIDS, KNOWN_DUNGEONS, EXCLUDED_ACTIVITIES } from "../core/consts";
 
 const widgetElem = document.querySelector<HTMLElement>("#widget")!;
 const loaderElem = document.querySelector<HTMLElement>("#widget-loader")!;
@@ -32,8 +32,9 @@ let timerWasActive: boolean = false;
 let shown = false;
 let prefs: Preferences;
 let currentTimespan: '1' | '7' | '30' = '1';
-let currentActivityType: 'all' | 'raids' | 'dungeons' | 'strikes' | 'lost-sectors' | 'other' | string = 'all';
+let currentActivityType: 'all' | 'raids' | 'dungeons' | 'strikes' | 'lost-sectors' | 'story' | 'other' | string = 'all';
 let previousUseRealTime: boolean;
+let lastErrorPopup: string | null = null;
 
 let cachedPlayerData: PlayerDataStatus | null = null;
 let lastPlayerDataCheck: number = 0;
@@ -202,6 +203,16 @@ function clearFilterCache() {
 
 
 function createPopup(popup: Popup) {
+    if (popup.title === "Error" && popup.subtext === lastErrorPopup) {
+        return;
+    }
+    
+    if (popup.title === "Error") {
+        lastErrorPopup = popup.subtext;
+    } else {
+        lastErrorPopup = null;
+    }
+    
     _createPopup(popup, shown);
 }
 
@@ -221,7 +232,9 @@ function checkTimerVisibility() {
 function filterActivities(activities: any[], timespan: string, activityType: string) {
     if (!activities) return [];
     
-    const cacheKey = `${timespan}_${activityType}_${prefs?.useRealTime}_${activities.length}`;
+    let filtered = activities.filter(activity => !EXCLUDED_ACTIVITIES.includes(activity.activityHash));
+    
+    const cacheKey = `${timespan}_${activityType}_${prefs?.useRealTime}_${filtered.length}`;
     const now = Date.now();
     
     if (cachedFilteredActivities.length > 0 && 
@@ -230,7 +243,7 @@ function filterActivities(activities: any[], timespan: string, activityType: str
         return cachedFilteredActivities;
     }
     
-    let filtered = [...activities];
+    filtered = [...filtered];
     const activityDate = (period: string) => new Date(period);
     
     if (prefs.useRealTime) {
@@ -313,6 +326,7 @@ function filterActivities(activities: any[], timespan: string, activityType: str
         if (activityType === 'dungeons') return type === 'Dungeon';
         if (activityType === 'strikes') return type === 'Strike';
         if (activityType === 'lost-sectors') return type === 'Lost Sector';
+        if (activityType === 'story') return type === 'Story';
         return true;
     });
     cachedFilteredActivities = filtered;
@@ -325,20 +339,25 @@ function filterActivities(activities: any[], timespan: string, activityType: str
 function refresh(playerDataStatus: PlayerDataStatus) {
     let playerData = playerDataStatus?.lastUpdate;
 
+    if (playerDataStatus?.error) {
+        widgetContentElem.classList.add("hidden");
+        loaderElem.classList.add("hidden");
+        errorElem.classList.remove("hidden");
+        
+        currentActivity = null;
+        doneInitialRefresh = false;
+        
+        createPopup({ title: "Error", subtext: playerDataStatus.error });
+        return;
+    }
+
     if (!playerData) {
         widgetContentElem.classList.add("hidden");
+        errorElem.classList.add("hidden");
+        loaderElem.classList.remove("hidden");
 
         currentActivity = null;
         doneInitialRefresh = false;
-
-        if (playerDataStatus?.error) {
-            loaderElem.classList.add("hidden");
-            errorElem.classList.remove("hidden");
-            createPopup({ title: "Failed to fetch initial stats", subtext: playerDataStatus.error });
-        } else {
-            errorElem.classList.add("hidden");
-            loaderElem.classList.remove("hidden");
-        }
 
         return;
     }

@@ -50,8 +50,8 @@ export type Preferences = {
 };
 
 export type PlayerDataStatus = {
-    lastUpdate: PlayerData,
-    error: string,
+    lastUpdate: PlayerData | null,
+    error: string | null,
     historyLoading: boolean,
 }
 

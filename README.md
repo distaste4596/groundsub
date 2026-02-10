@@ -38,6 +38,7 @@ Open Services -> Windows Time -> Properties -> Startup type: Automatic -> Apply*
 - Dungeons
 - Strikes / Portal
 - Lost Sectors
+- Story Missions
 
 ### Settings
 
@@ -68,4 +69,4 @@ https://github.com/dessh
 Additional code from  
 https://github.com/Taskeren
 
-Thanks to **Giraf**, **Icy**, and all beta testers.  
+Thanks to **Giraf**, **Icy**, and all beta testers.

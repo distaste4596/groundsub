@@ -15,7 +15,7 @@
         formatMillis,
         formatTime,
     } from "../../core/util";
-    import { KNOWN_RAIDS, KNOWN_DUNGEONS, GROUPED_RAIDS, GROUPED_DUNGEONS, ACTIVITY_ALIASES, REPOSITORY_LINK, BUNGIE_API_STATUS, REPOSITORY_LINK_ISSUES } from "../../core/consts";
+    import { KNOWN_RAIDS, KNOWN_DUNGEONS, GROUPED_RAIDS, GROUPED_DUNGEONS, ACTIVITY_ALIASES, REPOSITORY_LINK, BUNGIE_API_STATUS, REPOSITORY_LINK_ISSUES, EXCLUDED_ACTIVITIES } from "../../core/consts";
     import PreviousRaid from "./PreviousRaid.svelte";
     import Dot from "./Dot.svelte";
     import Loader from "../widgets/Loader.svelte";
@@ -39,8 +39,8 @@
     let lastTrackedActivityType: string = '';
     let lastProfileKey: string = '';
 
-    let playerData: PlayerData | undefined;
-    let error: string | undefined;
+    let playerData: PlayerData | null | undefined;
+    let error: string | null | undefined;
     let historyLoading: boolean = false;
     $: countedClears = playerData ? countClears(playerData.activityHistory) : 0;
     let showBanner = false;
@@ -76,6 +76,7 @@
         { value: 'dungeons', label: 'Dungeons' },
         { value: 'strikes', label: 'Strikes / Portal' },
         { value: 'lost-sectors', label: 'Lost Sectors' },
+        { value: 'story', label: 'Story Missions' },
     ];
 
     $: timespanOptions = [
@@ -101,11 +102,11 @@
     function searchActivities(query: string) {
         const queryLower = query.toLowerCase().trim();
         const allOptions = getAllActivityOptions();
-        
+
         if (queryLower === '') return allOptions.slice(0, 5);
         const matches = new Set<string>();
         const results: { value: string; label: string }[] = [];
-        
+
         Object.entries(ACTIVITY_ALIASES as Record<string, string>).forEach(([alias, groupKey]) => {
             if (alias.startsWith(queryLower)) {
                 const isRaid = GROUPED_RAIDS[groupKey];
@@ -119,22 +120,22 @@
                 }
             }
         });
-        
+
         allOptions.forEach(option => {
             if (option.label.toLowerCase().includes(queryLower) && !matches.has(option.value)) {
                 results.push(option);
             }
         });
-        
+
         return results.slice(0, 5);
     }
 
     function filterActivities(activities: CompletedActivity[], type: string, timespan: string) {
-        let filtered = activities;
+        let filtered = activities.filter(activity => !EXCLUDED_ACTIVITIES.includes(activity.activityHash));
 
         const now = new Date();
         const activityDate = (period: string) => new Date(period);
-        
+
         if (preferences.useRealTime) {
             if (timespan === '1') {
                 const cutoff = new Date(now.getTime() - 24 * 60 * 60 * 1000);
@@ -174,39 +175,39 @@
                 filtered = filtered.filter(activity => activityDate(activity.period) >= targetDate);
             }
         }
-        
+
         if (type === 'all') return filtered;
-        
+
         if (type.startsWith('grouped-raid-')) {
             const groupKey = type.replace('grouped-raid-', '');
             const groupData = (GROUPED_RAIDS as Record<string, { name: string; hashes: number[] }>)[groupKey];
             if (groupData) {
-                return filtered.filter(activity => 
+                return filtered.filter(activity =>
                     groupData.hashes.includes(activity.activityHash)
                 );
             }
         }
-        
+
         if (type.startsWith('grouped-dungeon-')) {
             const groupKey = type.replace('grouped-dungeon-', '');
             const groupData = (GROUPED_DUNGEONS as Record<string, { name: string; hashes: number[] }>)[groupKey];
             if (groupData) {
-                return filtered.filter(activity => 
+                return filtered.filter(activity =>
                     groupData.hashes.includes(activity.activityHash)
                 );
             }
         }
-        
+
         if (type.startsWith('raid-')) {
             const raidHash = parseInt(type.split('-')[1]);
             return filtered.filter(activity => activity.activityHash === raidHash);
         }
-        
+
         if (type.startsWith('dungeon-')) {
             const dungeonHash = parseInt(type.split('-')[1]);
             return filtered.filter(activity => activity.activityHash === dungeonHash);
         }
-        
+
         return filtered.filter(activity => {
             const activityType = determineActivityType(activity.modes);
             if (!activityType) return false;
@@ -214,13 +215,14 @@
             if (type === 'dungeons') return activityType === 'Dungeon';
             if (type === 'strikes') return activityType === 'Strike';
             if (type === 'lost-sectors') return activityType === 'Lost Sector';
+            if (type === 'story') return activityType === 'Story';
             return true;
         });
     }
-    
+
     $: filteredActivities = playerData ? filterActivities(playerData.activityHistory, selectedActivityType, selectedTimespan) : [];
     $: filteredClears = filteredActivities.filter(a => a.completed).length;
-    
+
     $: if (filteredActivities.length > 0) {
         filteredActivities.forEach(activity => {
             if (!activityInfoMap[activity.activityHash]) {
@@ -228,7 +230,7 @@
             }
         });
     }
-    
+
     $: if (playerData && selectedTimespan) {
         emit('filter-changed', {
             timespan: selectedTimespan,
@@ -243,7 +245,7 @@
     $: isInOrbit = playerData?.currentActivity?.activityHash === 0;
 
     $: if (!isInOrbit && playerData?.currentActivity?.activityInfo && activityType) {
-        if (timerMode !== 'persistent' || 
+        if (timerMode !== 'persistent' ||
             (lastTrackedActivityName !== playerData.currentActivity.activityInfo.name)) {
             lastTrackedActivityName = playerData.currentActivity.activityInfo.name;
             lastTrackedActivityType = activityType;
@@ -259,7 +261,7 @@
     function toggleTimerMode() {
         const newMode = timerMode === 'default' ? 'persistent' : 'default';
         timerMode = newMode;
-        
+
         ipc.setTimerMode(newMode).catch(console.error);
         saveTimerModeToConfig(newMode);
     }
@@ -284,12 +286,12 @@
     }
 
     let activityInfoLoadingMap: { [hash: number]: Promise<ActivityInfo> } = {};
-    
+
     function getActivityInfoAsync(hash: number): Promise<ActivityInfo> {
         if (activityInfoMap[hash]) {
             return Promise.resolve(activityInfoMap[hash]);
         }
-        
+
         if (!activityInfoLoadingMap[hash]) {
             activityInfoLoadingMap[hash] = ipc.getActivityInfo(hash).then(info => {
                 activityInfoMap[hash] = info;
@@ -297,7 +299,7 @@
                 return info;
             });
         }
-        
+
         return activityInfoLoadingMap[hash];
     }
 
@@ -385,7 +387,24 @@
 </script>
 
 <main>
-    {#if playerData || error}
+    {#if error}
+        <div class="header margin">
+            <div class="status">
+                <h1 class="small">Error</h1>
+                <p class="error">{error}</p>
+                <div class="error-actions">
+                    <p>If this error persists, consider: </p>
+                    <ul>
+                        <li>- Restarting the groundsub</li>
+                        <li>- Restarting your computer / router</li>
+                        <li>- Checking the Bungie API status <a href="{BUNGIE_API_STATUS}" target="_blank" rel="noopener noreferrer">here</a></li>
+                        <li>- Opening an issue on GitHub <a href="{REPOSITORY_LINK_ISSUES}" target="_blank" rel="noopener noreferrer">here</a></li>
+                        <li>- Messaging me on discord: xxccss</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    {:else if playerData}
         {#if showBanner}
             <div class="banner margin">
                 <div class="text">
@@ -433,18 +452,6 @@
                         </h1>
                         <h2 class="grey">NOT IN ACTIVITY</h2>
                     {/if}
-                {:else}
-                    <h1 class="small">Error</h1>
-                    <p class="error">{error}</p>
-                    <div class="error-actions">
-                        <p>If this error persists, consider: </p>
-                        <ul>
-                            <li>Restarting your computer / router</li>
-                            <li>Checking the Bungie API status <a href="{BUNGIE_API_STATUS}" target="_blank" rel="noopener noreferrer">here</a></li>
-                            <li>Opening an issue on GitHub <a href="{REPOSITORY_LINK_ISSUES}" target="_blank" rel="noopener noreferrer">here</a></li>
-                            <li>Messaging me on discord: xxccss</li>
-                        </ul>
-                    </div>
                 {/if}
             </div>
             <div class="actions">
@@ -482,7 +489,7 @@
             <div class="margin">
                 <div class="filters">
                     <div class="filter-group">
-                        <SearchableSelect 
+                        <SearchableSelect
                             bind:value={selectedActivityType}
                             options={activityOptions}
                             getAllOptions={searchActivities}
@@ -491,7 +498,7 @@
                         />
                     </div>
                     <div class="filter-group">
-                        <SearchableSelect 
+                        <SearchableSelect
                             bind:value={selectedTimespan}
                             options={timespanOptions}
                             searchable={false}
@@ -531,8 +538,8 @@
                     {/if}
                 {/if}
                 {#each filteredActivities as activity}
-                    <PreviousRaid 
-                        {activity} 
+                    <PreviousRaid
+                        {activity}
                         activityInfo={activityInfoMap[activity.activityHash]}
                         showTimestamp={preferences.showTimestampInstead}
                         raidLinkProvider={preferences.raidLinkProvider}
@@ -586,7 +593,7 @@
         max-width: 160px;
     }
 
-    
+
     .clear-counters {
         margin-left: auto;
         display: flex;
@@ -649,14 +656,21 @@
     }
 
     h1 {
-        font-size: 56px;
+        font-size: 48px;
         font-weight: 600;
         margin-bottom: 4px;
     }
 
     h1.small,
     h1 .small {
-        font-size: 36px;
+        font-size: 32px;
+    }
+
+    h1.small {
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        max-width: 100%;
     }
 
     h2 {
@@ -670,6 +684,8 @@
 
     .status {
         flex: 1;
+        min-width: 0;
+        overflow: hidden;
     }
 
     .actions {
