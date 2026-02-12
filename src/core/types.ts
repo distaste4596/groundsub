@@ -31,11 +31,13 @@ export type Preferences = {
     enableOverlay: boolean;
     displayTimer: boolean;
     displayDailyClears: boolean;
+    displayAverageClearTimeOverlay: boolean;
     displayIcons: boolean;
     displayClearNotifications: boolean;
     displayMilliseconds: boolean;
     showTimestampInstead: boolean;
     useRealTime: boolean;
+    displayAverageClearTimeDetails: boolean;
     primaryBackground: string;
     secondaryBackground: string;
     primaryHighlight: string;

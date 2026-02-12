@@ -34,6 +34,12 @@ pub struct PlayerDataStatus {
     pub last_update: Option<PlayerData>,
     pub error: Option<String>,
     pub history_loading: bool,
+    #[serde(skip)]
+    pub consecutive_error_count: u32,
+    #[serde(skip)]
+    pub last_error: Option<String>,
+    #[serde(skip)]
+    pub is_startup: bool,
 }
 
 #[derive(Serialize, Clone, Deserialize)]
@@ -62,6 +68,9 @@ impl PlayerDataPoller {
                 last_update: None,
                 error: None,
                 history_loading: false,
+                consecutive_error_count: 0,
+                last_error: None,
+                is_startup: true,
             };
 
             send_data_update(&app_handle, lock.clone()).await;
@@ -78,8 +87,7 @@ impl PlayerDataPoller {
                     Some(p) => p.clone(),
                     None => {
                         let mut lock = playerdata_clone.lock().await;
-                        lock.error = Some("No profile set".to_string());
-
+                        handle_error(&mut lock, "No profile set".to_string(), &app_handle);
                         send_data_update(&app_handle, lock.clone()).await;
                         return;
                     }
@@ -94,8 +102,7 @@ impl PlayerDataPoller {
                     Ok(p) => p,
                     Err(e) => {
                         let mut lock = playerdata_clone.lock().await;
-                        lock.error = Some(e.to_string());
-
+                        handle_error(&mut lock, e.to_string(), &app_handle);
                         send_data_update(&app_handle, lock.clone()).await;
                         return;
                     }
@@ -114,6 +121,8 @@ impl PlayerDataPoller {
                 let mut lock = playerdata_clone.lock().await;
                 match res {
                     Ok(_) => {
+                        handle_success(&mut lock);
+                        
                         let playerdata = PlayerData {
                             current_activity: current_activity,
                             activity_history: Vec::new(),
@@ -125,7 +134,7 @@ impl PlayerDataPoller {
                         send_data_update(&app_handle, lock.clone()).await;
                     }
                     Err(e) => {
-                        lock.error = Some(e.to_string());
+                        handle_error(&mut lock, e.to_string(), &app_handle);
                         send_data_update(&app_handle, lock.clone()).await;
                         return;
                     }
@@ -134,7 +143,7 @@ impl PlayerDataPoller {
 
             if let Err(e) = load_history_incremental(&app_handle, &playerdata_clone, &profile).await {
                 let mut lock = playerdata_clone.lock().await;
-                lock.error = Some(e.to_string());
+                handle_error(&mut lock, e.to_string(), &app_handle);
                 lock.history_loading = false;
                 send_data_update(&app_handle, lock.clone()).await;
             }
@@ -156,14 +165,14 @@ impl PlayerDataPoller {
                 match res {
                     Ok(true) => {
                         let mut lock = playerdata_clone.lock().await;
-                        lock.error = None;
+                        handle_success(&mut lock);
                         lock.last_update = Some(last_update);
 
                         send_data_update(&app_handle, lock.clone()).await;
                     }
                     Err(e) => {
                         let mut lock = playerdata_clone.lock().await;
-                        lock.error = Some(e.to_string());
+                        handle_error(&mut lock, e.to_string(), &app_handle);
 
                         send_data_update(&app_handle, lock.clone()).await;
                     }
@@ -181,6 +190,31 @@ impl PlayerDataPoller {
             Err(_) => None,
         };
     }
+}
+
+fn handle_error(
+    lock: &mut PlayerDataStatus,
+    error_message: String,
+    app_handle: &AppHandle,
+) {
+    lock.last_error = Some(error_message.clone());
+    
+    if lock.is_startup {
+        lock.error = Some(error_message);
+    } else {
+        lock.consecutive_error_count += 1;
+        
+        if lock.consecutive_error_count >= 3 {
+            lock.error = Some(error_message);
+        }
+    }
+}
+
+fn handle_success(lock: &mut PlayerDataStatus) {
+    lock.consecutive_error_count = 0;
+    lock.last_error = None;
+    lock.error = None;
+    lock.is_startup = false;
 }
 
 async fn send_data_update(handle: &AppHandle, data: PlayerDataStatus) {

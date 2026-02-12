@@ -57,9 +57,9 @@ export const ACTIVITY_ALIASES = {
     "gos": "garden-of-salvation",
     "dsc": "deep-stone-crypt",
     "vog": "vault-of-glass",
-    "kf": "kings-fall",
+    "kf": "king-s-fall",
     "ron": "root-of-nightmares",
-    "se": "salvations-edge",
+    "se": "salvation-s-edge",
     "dp": "the-desert-perpetual",
 
     "gotd": "ghosts-of-the-deep",

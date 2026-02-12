@@ -45,11 +45,13 @@ Open Services -> Windows Time -> Properties -> Startup type: Automatic -> Apply*
 **Overlay**
 - Toggle timer
 - Toggle icons
+- Show average clear time
 - Overlay position
 
 **Details**
 - Show timestamps instead of elapsed time
 - Swap between Bungie time and real time
+- Show average clear time
 - Select raid link provider (`raid.report` or `raidhub.io`)
 
 **Appearance**

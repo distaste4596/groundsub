@@ -39,3 +39,26 @@ export function determineActivityType(modes: number[]): string | undefined {
         }
     }
 }
+
+export function calculateAverageClearTime(activities: CompletedActivity[]): number {
+    const completedActivities = activities.filter(a => a.completed);
+    if (completedActivities.length === 0) return 0;
+    
+    const totalTime = completedActivities.reduce((sum, activity) => 
+        sum + activity.activityDurationSeconds, 0);
+    return totalTime / completedActivities.length;
+}
+
+export function formatTimeWithUnit(seconds: number): string {
+    let hours = Math.floor(seconds / 3600);
+    let minutes = Math.floor((seconds % 3600) / 60);
+    let secs = Math.floor(seconds % 60);
+
+    if (hours > 0) {
+        return `${hours}h ${minutes}m`;
+    } else if (minutes > 0) {
+        return `${minutes}m ${secs}s`;
+    } else {
+        return `${secs}s`;
+    }
+}

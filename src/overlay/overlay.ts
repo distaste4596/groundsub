@@ -4,7 +4,7 @@ import { appWindow, WebviewWindow } from "@tauri-apps/api/window";
 import { createPopup as _createPopup, type Popup } from "./popups";
 import type { TauriEvent, Preferences, CurrentActivity, PlayerDataStatus } from "../core/types";
 import { emit, listen } from "@tauri-apps/api/event";
-import { countClears, determineActivityType } from "../core/util";
+import { countClears, determineActivityType, calculateAverageClearTime, formatTimeWithUnit } from "../core/util";
 import { getPlayerdata, getPreferences } from "../core/ipc";
 import { THEME_UPDATE_EVENT } from "../core/theme";
 import { type TimerState } from "../core/types";
@@ -20,6 +20,8 @@ const msElem = document.querySelector<HTMLElement>("#ms")!;
 const counterElem = document.querySelector<HTMLElement>("#counter")!;
 const dailyElem = document.querySelector<HTMLElement>("#daily")!;
 const timespanTextElem = document.querySelector<HTMLElement>("#timespan-text")!;
+const averageTimeElem = document.querySelector<HTMLElement>("#average-time")!;
+const averageTimeTextElem = document.querySelector<HTMLElement>("#average-time-text")!;
 
 let currentActivity: CurrentActivity | null;
 let lastRaidId: string | undefined;
@@ -192,6 +194,11 @@ function updateClearCountFromData(playerDataStatus: PlayerDataStatus) {
     if (currentClearCount !== lastClearCount) {
         dailyElem.innerText = String(currentClearCount);
         lastClearCount = currentClearCount;
+    }
+
+    if (prefs.displayAverageClearTimeOverlay) {
+        const averageTime = calculateAverageClearTime(filteredActivities);
+        averageTimeTextElem.innerText = `${formatTimeWithUnit(averageTime)}`;
     }
 }
 
@@ -376,6 +383,11 @@ function refresh(playerDataStatus: PlayerDataStatus) {
     const filteredActivities = filterActivities(playerData.activityHistory, currentTimespan, currentActivityType);
     dailyElem.innerText = String(countClears(filteredActivities));
 
+    if (prefs.displayAverageClearTimeOverlay) {
+        const averageTime = calculateAverageClearTime(filteredActivities);
+        averageTimeTextElem.innerText = `${formatTimeWithUnit(averageTime)}`;
+    }
+
     let latestRaid = filteredActivities[0];
     
     if (doneInitialRefresh && latestRaid?.completed && lastRaidId != latestRaid.instanceId && prefs.displayClearNotifications && !playerDataStatus.historyLoading) {
@@ -427,6 +439,14 @@ function applyPreferences(p: Preferences) {
             counterElem.classList.remove("hidden");
         } else {
             counterElem.classList.add("hidden");
+        }
+    }
+
+    if (averageTimeElem) {
+        if (p.displayAverageClearTimeOverlay) {
+            averageTimeElem.classList.remove("hidden");
+        } else {
+            averageTimeElem.classList.add("hidden");
         }
     }
     

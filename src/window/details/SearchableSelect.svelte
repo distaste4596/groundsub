@@ -183,7 +183,6 @@
 <style>
     .searchable-select {
         position: relative;
-        width: 160px;
         z-index: 1;
         overflow: visible !important;
     }
@@ -241,13 +240,12 @@
         box-shadow: 0 2px 8px rgba(0, 0, 0, 0.03);
         z-index: 9999;
         overflow: visible !important;
-        width: 158px;
         box-sizing: border-box;
     }
 
     .search-input {
         width: 100%;
-        padding: 6px 10px;
+        padding: 6px 6px;
         border: none;
         border-bottom: 1px solid rgba(255, 255, 255, 0.06);
         background: rgba(255, 255, 255, 0.035);

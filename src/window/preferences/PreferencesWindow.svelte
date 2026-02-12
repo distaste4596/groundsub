@@ -217,6 +217,13 @@
                             </div>
                             <div class="preference">
                                 <StyledCheckbox
+                                    bind:checked={preferences.displayAverageClearTimeOverlay}
+                                    disabled={!preferences.enableOverlay}
+                                    >Display average clear time</StyledCheckbox
+                                >
+                            </div>
+                            <div class="preference">
+                                <StyledCheckbox
                                     bind:checked={preferences.displayIcons}
                                     disabled={!preferences.enableOverlay}
                                     >Display icons</StyledCheckbox
@@ -286,6 +293,11 @@
                                     bind:checked={preferences.useRealTime}
                                     title="When enabled, uses 24h / 7d / 30d instead of Last Daily Reset / Last Weekly Reset / Last 4 Weekly Resets."
                                     >Use real time instead of Bungie time</StyledCheckbox>
+                            </div>
+                            <div class="preference">
+                                <StyledCheckbox
+                                    bind:checked={preferences.displayAverageClearTimeDetails}
+                                    >Display average clear time</StyledCheckbox>
                             </div>
                             <div class="preference">
                                 <div class="toggle-inline">
