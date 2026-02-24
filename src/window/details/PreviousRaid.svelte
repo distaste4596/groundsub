@@ -17,6 +17,8 @@
     let lastActivityHash: number | undefined;
     let isLoading = false;
 
+    $: completedStatus = activity.completed;
+
     $: {
         updateDisplayText();
         if (lastActivityHash !== activity.activityHash) {
@@ -110,7 +112,9 @@
 <div class="raid">
     <div class="details">
         <p class="title">
-            <Dot completed={activity.completed} />
+            {#key `${activity.instanceId}-${completedStatus}`}
+                <Dot completed={completedStatus} />
+            {/key}
             <span>{displayName}</span>
         </p>
         <p>

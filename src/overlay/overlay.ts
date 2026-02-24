@@ -226,7 +226,8 @@ function createPopup(popup: Popup) {
 function checkTimerVisibility() {
     const activityType = determineActivityType(currentActivity?.activityInfo?.activityModes || []);
     const shouldShow = prefs && prefs.displayTimer && shown && 
-                      (activityType || (timerMode === 'persistent' && timerWasActive && timerIsActive));
+                      ((timerMode === 'persistent' && timerWasActive && timerIsActive) || 
+                       (timerMode !== 'persistent' && activityType));
     
     if (!shouldShow) {
         if (timerElem) timerElem.classList.add("hidden");
@@ -420,18 +421,11 @@ function refresh(playerDataStatus: PlayerDataStatus) {
 
 function applyPreferences(p: Preferences) {
     const useRealTimeChanged = prefs && p.useRealTime !== prefs.useRealTime;
+    const averageTimeDisplayChanged = prefs && p.displayAverageClearTimeOverlay !== prefs.displayAverageClearTimeOverlay;
     prefs = p;
 
     if (useRealTimeChanged) {
         clearFilterCache();
-    }
-
-    if (timerElem) {
-        if (p.displayTimer) {
-            timerElem.classList.remove("hidden");
-        } else {
-            timerElem.classList.add("hidden");
-        }
     }
 
     if (counterElem) {
@@ -449,6 +443,17 @@ function applyPreferences(p: Preferences) {
             averageTimeElem.classList.add("hidden");
         }
     }
+
+    if (averageTimeDisplayChanged && p.displayAverageClearTimeOverlay) {
+        (async () => {
+            const playerData = await getPlayerdata();
+            if (playerData && cachedPlayerData?.lastUpdate) {
+                const filteredActivities = filterActivities(cachedPlayerData.lastUpdate.activityHistory, currentTimespan, currentActivityType);
+                const averageTime = calculateAverageClearTime(filteredActivities);
+                averageTimeTextElem.innerText = `${formatTimeWithUnit(averageTime)}`;
+            }
+        })();
+    }
     
     if (msElem) {
         if (p.displayMilliseconds) {
@@ -460,6 +465,8 @@ function applyPreferences(p: Preferences) {
 
     const svgs = document.querySelectorAll<SVGElement>("#widget-content svg");
     svgs.forEach(svg => {
+        if (svg.closest('#timer')) return;
+        
         if (p.displayIcons) {
             svg.classList.remove("hidden");
         } else {

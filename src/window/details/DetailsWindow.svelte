@@ -16,6 +16,7 @@
         formatTime,
         calculateAverageClearTime,
         formatTimeWithUnit,
+        resolveActivityName,
     } from "../../core/util";
     import { KNOWN_RAIDS, KNOWN_DUNGEONS, GROUPED_RAIDS, GROUPED_DUNGEONS, ACTIVITY_ALIASES, REPOSITORY_LINK, BUNGIE_API_STATUS, REPOSITORY_LINK_ISSUES, EXCLUDED_ACTIVITIES } from "../../core/consts";
     import PreviousRaid from "./PreviousRaid.svelte";
@@ -42,9 +43,10 @@
     let lastTrackedActivityType: string = '';
     let lastProfileKey: string = '';
 
-    let playerData: PlayerData | null | undefined;
-    let error: string | null | undefined;
-    let historyLoading: boolean = false;
+    let playerData: PlayerData | null = null;
+    let error: string | null = null;
+    let historyLoading = false;
+    let dataUpdateTimestamp = 0;
     $: countedClears = playerData ? countClears(playerData.activityHistory) : 0;
     let showBanner = false;
     let preferences: Preferences = {
@@ -226,7 +228,7 @@
         });
     }
 
-    $: filteredActivities = playerData ? filterActivities(playerData.activityHistory, selectedActivityType, selectedTimespan) : [];
+    $: filteredActivities = playerData ? filterActivities([...playerData.activityHistory], selectedActivityType, selectedTimespan) : [];
     $: filteredClears = filteredActivities.filter(a => a.completed).length;
     $: averageClearTime = calculateAverageClearTime(filteredActivities);
 
@@ -253,8 +255,8 @@
 
     $: if (!isInOrbit && playerData?.currentActivity?.activityInfo && activityType) {
         if (timerMode !== 'persistent' ||
-            (lastTrackedActivityName !== playerData.currentActivity.activityInfo.name)) {
-            lastTrackedActivityName = playerData.currentActivity.activityInfo.name;
+            (lastTrackedActivityName !== resolveActivityName(playerData.currentActivity.activityHash, playerData.currentActivity.activityInfo.name))) {
+            lastTrackedActivityName = resolveActivityName(playerData.currentActivity.activityHash, playerData.currentActivity.activityInfo.name);
             lastTrackedActivityType = activityType;
         }
     } else if (isInOrbit) {
@@ -323,9 +325,10 @@
     }
 
     function handleUpdate(status: PlayerDataStatus | null) {
-        playerData = status?.lastUpdate;
-        error = status?.error;
+        playerData = status?.lastUpdate ?? null;
+        error = status?.error ?? null;
         historyLoading = status?.historyLoading || false;
+        dataUpdateTimestamp = Date.now();
 
         let currentActivity = playerData?.currentActivity;
         if (currentActivity?.activityInfo) {
@@ -451,7 +454,7 @@
                             {timerState.timeText}<span class="small grey">{timerState.msText}</span>
                         </h1>
                         <h2 class="grey">
-                            {playerData.currentActivity.activityInfo.name.toUpperCase()}
+                            {resolveActivityName(playerData.currentActivity.activityHash, playerData.currentActivity.activityInfo.name).toUpperCase()}
                         </h2>
                     {:else if timerMode === 'persistent' && lastTrackedActivityName && timerState.timeText !== "" && (timerState.isActive || isInOrbit)}
                         <h1>{timerState.timeText}<span class="small grey">{timerState.msText}</span></h1>

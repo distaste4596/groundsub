@@ -1,4 +1,4 @@
-import { ACTIVITY_TYPES } from "./consts";
+import { ACTIVITY_TYPES, KNOWN_RAIDS, KNOWN_DUNGEONS } from "./consts";
 import type { CompletedActivity } from "./types";
 
 export function formatTime(millis: number): string {
@@ -43,8 +43,8 @@ export function determineActivityType(modes: number[]): string | undefined {
 export function calculateAverageClearTime(activities: CompletedActivity[]): number {
     const completedActivities = activities.filter(a => a.completed);
     if (completedActivities.length === 0) return 0;
-    
-    const totalTime = completedActivities.reduce((sum, activity) => 
+
+    const totalTime = completedActivities.reduce((sum, activity) =>
         sum + activity.activityDurationSeconds, 0);
     return totalTime / completedActivities.length;
 }
@@ -61,4 +61,16 @@ export function formatTimeWithUnit(seconds: number): string {
     } else {
         return `${secs}s`;
     }
+}
+
+export function resolveActivityName(activityHash: number, fallbackName: string): string {
+    if (Object.prototype.hasOwnProperty.call(KNOWN_RAIDS, activityHash)) {
+        return KNOWN_RAIDS[activityHash as keyof typeof KNOWN_RAIDS];
+    }
+
+    if (Object.prototype.hasOwnProperty.call(KNOWN_DUNGEONS, activityHash)) {
+        return KNOWN_DUNGEONS[activityHash as keyof typeof KNOWN_DUNGEONS];
+    }
+
+    return fallbackName;
 }
