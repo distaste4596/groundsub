@@ -465,8 +465,6 @@ function applyPreferences(p: Preferences) {
 
     const svgs = document.querySelectorAll<SVGElement>("#widget-content svg");
     svgs.forEach(svg => {
-        if (svg.closest('#timer')) return;
-        
         if (p.displayIcons) {
             svg.classList.remove("hidden");
         } else {
