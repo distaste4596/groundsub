@@ -542,7 +542,7 @@ function applyPreferences(p: Preferences) {
         })();
     }
 
-    if (currentMediaInfo && currentMediaInfo.hasMedia && p.displayNowPlaying) {
+    if (currentMediaInfo) {
         updateNowPlaying(currentMediaInfo);
     }
 
@@ -561,13 +561,19 @@ function updateNowPlaying(mediaInfo: MediaInfo) {
         return;
     }
 
-    if (prefs?.displayIcons) {
+    if (prefs?.displayNowPlaying) {
+        nowPlayingTitleElem.textContent = mediaInfo.title || '';
+        nowPlayingArtistElem.textContent = mediaInfo.artist || '';
+    } else {
+        nowPlayingTitleElem.textContent = '';
+        nowPlayingArtistElem.textContent = '';
+    }
+    
+    if (prefs?.displayNowPlaying && prefs?.displayIcons) {
         nowPlayingIconElem.classList.remove("hidden");
     } else {
         nowPlayingIconElem.classList.add("hidden");
     }
-    nowPlayingTitleElem.textContent = mediaInfo.title || '';
-    nowPlayingArtistElem.textContent = mediaInfo.artist || '';
     
     updateNowPlayingVisibility();
 }
