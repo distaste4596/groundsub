@@ -7,7 +7,7 @@ export async function initializeTheme() {
     try {
         const prefs = await getPreferences();
         updateCssVariables(prefs);
-        
+
         await listen<ThemeVariables>(THEME_UPDATE_EVENT, (event) => {
             updateCssVariables(event.payload);
         });
@@ -16,7 +16,10 @@ export async function initializeTheme() {
         updateCssVariables({
             primaryBackground: "#12171c",
             secondaryBackground: "#180f1c",
-            primaryHighlight: "#74259c"
+            primaryHighlight: "#74259c",
+            clearTextColor: "#ffffff",
+            incompleteColor: "#ff6b6b",
+            completedColor: "#51cf66"
         });
     }
 }
@@ -31,9 +34,17 @@ function updateCssVariables(prefs: ThemeVariables) {
     root.style.setProperty('--primary-background', prefs.primaryBackground);
     root.style.setProperty('--secondary-background', prefs.secondaryBackground);
     root.style.setProperty('--primary-highlight', prefs.primaryHighlight);
-    
+
     if (prefs.clearTextColor) {
         root.style.setProperty('--clear-text-color', prefs.clearTextColor);
+    }
+
+    if (prefs.incompleteColor) {
+        root.style.setProperty('--difference-incomplete-color', prefs.incompleteColor);
+    }
+
+    if (prefs.completedColor) {
+        root.style.setProperty('--difference-completed-color', prefs.completedColor);
     }
 }
 
@@ -42,4 +53,6 @@ type ThemeVariables = {
     secondaryBackground: string;
     primaryHighlight: string;
     clearTextColor?: string;
+    incompleteColor?: string;
+    completedColor?: string;
 };

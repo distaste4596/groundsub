@@ -38,17 +38,22 @@ export type Preferences = {
     showTimestampInstead: boolean;
     useRealTime: boolean;
     displayAverageClearTimeDetails: boolean;
+    displayDifferenceIndicator: boolean;
     primaryBackground: string;
     secondaryBackground: string;
     primaryHighlight: string;
     clearTextColor: string;
+    incompleteColor: string;
+    completedColor: string;
     filterActivityType: string;
     filterTimespan: string;
     timerMode: 'default' | 'persistent';
     raidLinkProvider: 'raid.report' | 'raidhub.io';
-    overlayPosition: 'left' | 'right' | 'custom';
+    overlayPosition: 'left' | 'right' | 'bottom-right' | 'custom';
     customOverlayX: number;
     customOverlayY: number;
+    customStartDate: string;
+    displayNowPlaying: boolean;
 };
 
 export type PlayerDataStatus = {
@@ -91,3 +96,14 @@ export interface TimerState {
     isActive: boolean;
     mode: 'default' | 'persistent';
 }
+
+export type MediaInfo = {
+    title: string;
+    artist: string;
+    album: string;
+    albumArtist: string;
+    trackNumber: number;
+    isPlaying: boolean;
+    appId: string;
+    hasMedia: boolean;
+};

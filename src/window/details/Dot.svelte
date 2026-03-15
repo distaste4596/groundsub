@@ -12,10 +12,10 @@
         height: 8px;
         border-radius: 50%;
         margin-right: 8px;
-        background-color: #e33;
+        background-color: var(--difference-incomplete-color);
     }
 
     span.completed {
-        background-color: #3e3;
+        background-color: var(--difference-completed-color);
     }
 </style>

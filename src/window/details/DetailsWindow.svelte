@@ -16,6 +16,8 @@
         formatTime,
         calculateAverageClearTime,
         formatTimeWithUnit,
+        calculateDifferenceFromAverage,
+        formatDifference,
         resolveActivityName,
     } from "../../core/util";
     import { KNOWN_RAIDS, KNOWN_DUNGEONS, GROUPED_RAIDS, GROUPED_DUNGEONS, ACTIVITY_ALIASES, REPOSITORY_LINK, BUNGIE_API_STATUS, REPOSITORY_LINK_ISSUES, EXCLUDED_ACTIVITIES } from "../../core/consts";
@@ -60,23 +62,31 @@
         showTimestampInstead: false,
         useRealTime: false,
         displayAverageClearTimeDetails: false,
+        displayDifferenceIndicator: false,
         primaryBackground: '',
         secondaryBackground: '',
         primaryHighlight: '',
         clearTextColor: '',
+        incompleteColor: '#ff6b6b',
+        completedColor: '#51cf66',
         filterActivityType: 'all',
         filterTimespan: '1',
         timerMode: 'default',
         raidLinkProvider: 'raid.report',
         overlayPosition: 'left',
         customOverlayX: 0,
-        customOverlayY: 0
+        customOverlayY: 0,
+        customStartDate: '',
+        displayNowPlaying: false
     };
 
     let activityInfoMap: { [hash: number]: ActivityInfo } = {};
     let selectedActivityType = 'all';
-    let selectedTimespan: '1' | '7' | '30' = '1';
+    let selectedTimespan: '1' | '7' | '30' | 'custom' = '1';
+    let customStartDate: string = '';
+    let hiddenDateInput: HTMLInputElement;
     let saveTimeout: number;
+    let filterTimeout: number;
     $: activityOptions = [
         { value: 'all', label: 'All Activities' },
         { value: 'raids', label: 'Raids' },
@@ -89,8 +99,16 @@
     $: timespanOptions = [
         { value: '1', label: preferences.useRealTime ? 'Last 24h' : 'Today' },
         { value: '7', label: preferences.useRealTime ? 'Last 7d' : 'This Week' },
-        { value: '30', label: preferences.useRealTime ? 'Last 30d' : 'This Month' }
+        { value: '30', label: preferences.useRealTime ? 'Last 30d' : 'This Month' },
+        { value: 'custom', label: 'Date' }
     ];
+
+    $: timespanDisplayLabel = selectedTimespan === 'custom' && customStartDate ? (() => {
+        const date = new Date(customStartDate);
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        return `${month}-${day}`;
+    })() : timespanOptions.find(opt => opt.value === selectedTimespan)?.label || 'Date';
 
     function getAllActivityOptions() {
         const specificOptions = [
@@ -108,36 +126,56 @@
 
     function searchActivities(query: string) {
         const queryLower = query.toLowerCase().trim();
+        if (queryLower === '') return getAllActivityOptions().slice(0, 5);
+        
         const allOptions = getAllActivityOptions();
-
-        if (queryLower === '') return allOptions.slice(0, 5);
-        const matches = new Set<string>();
         const results: { value: string; label: string }[] = [];
+        const seen = new Set<string>();
 
-        Object.entries(ACTIVITY_ALIASES as Record<string, string>).forEach(([alias, groupKey]) => {
-            if (alias.startsWith(queryLower)) {
+        if (queryLower.length < 2) {
+            return allOptions
+                .filter(option => option.label.toLowerCase().startsWith(queryLower))
+                .slice(0, 5);
+        }
+
+        for (const option of allOptions) {
+            if (option.label.toLowerCase() === queryLower) {
+                results.push(option);
+                seen.add(option.value);
+                break;
+            }
+        }
+
+        for (const [alias, groupKey] of Object.entries(ACTIVITY_ALIASES as Record<string, string>)) {
+            if (alias.startsWith(queryLower) && !seen.has(groupKey)) {
                 const isRaid = GROUPED_RAIDS[groupKey];
                 const groupData = isRaid ? GROUPED_RAIDS[groupKey] : GROUPED_DUNGEONS[groupKey];
-                if (groupData && !matches.has(groupKey)) {
+                if (groupData) {
                     const optionValue = `${isRaid ? 'grouped-raid' : 'grouped-dungeon'}-${groupKey}`;
-                    matches.add(optionValue);
-                    results.push({
-                        value: optionValue,
-                        label: groupData.name
-                    });
+                    results.push({ value: optionValue, label: groupData.name });
+                    seen.add(optionValue);
                 }
             }
-        });
+        }
 
-        allOptions.forEach(option => {
-            if (option.label.toLowerCase().includes(queryLower) && !matches.has(option.value)) {
+        for (const option of allOptions) {
+            if (!seen.has(option.value) && option.label.toLowerCase().includes(queryLower)) {
                 results.push(option);
+                seen.add(option.value);
             }
-        });
+        }
 
         return results.slice(0, 5);
     }
 
+    function debouncedFilterActivities() {
+        if (filterTimeout) {
+            clearTimeout(filterTimeout);
+        }
+        filterTimeout = setTimeout(() => {
+            filteredActivities = playerData ? filterActivities([...playerData.activityHistory], selectedActivityType, selectedTimespan) : [];
+        }, 100);
+    }
     function filterActivities(activities: CompletedActivity[], type: string, timespan: string) {
         let filtered = activities.filter(activity => !EXCLUDED_ACTIVITIES.includes(activity.activityHash));
 
@@ -153,6 +191,9 @@
                 filtered = filtered.filter(activity => activityDate(activity.period) >= cutoff);
             } else if (timespan === '30') {
                 const cutoff = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+                filtered = filtered.filter(activity => activityDate(activity.period) >= cutoff);
+            } else if (timespan === 'custom' && customStartDate) {
+                const cutoff = new Date(customStartDate);
                 filtered = filtered.filter(activity => activityDate(activity.period) >= cutoff);
             }
         } else {
@@ -170,6 +211,9 @@
                 const lastTuesday = new Date(today);
                 lastTuesday.setUTCDate(today.getUTCDate() - daysSinceTuesday);
                 lastTuesday.setUTCHours(17, 0, 0, 0);
+                if (lastTuesday > now) {
+                    lastTuesday.setUTCDate(lastTuesday.getUTCDate() - 7);
+                }
                 filtered = filtered.filter(activity => activityDate(activity.period) >= lastTuesday);
             } else if (timespan === '30') {
                 const today = new Date(now);
@@ -177,10 +221,20 @@
                 const daysSinceTuesday = (day + 5) % 7;
                 const lastTuesday = new Date(today);
                 lastTuesday.setUTCDate(today.getUTCDate() - daysSinceTuesday);
+                lastTuesday.setUTCHours(17, 0, 0, 0);
+                if (lastTuesday > now) {
+                    lastTuesday.setUTCDate(lastTuesday.getUTCDate() - 7);
+                }
                 const targetDate = new Date(lastTuesday);
                 targetDate.setUTCDate(lastTuesday.getUTCDate() - 21);
-                targetDate.setUTCHours(17, 0, 0, 0);
                 filtered = filtered.filter(activity => activityDate(activity.period) >= targetDate);
+            } else if (timespan === 'custom' && customStartDate) {
+                const selectedDate = new Date(customStartDate);
+                selectedDate.setUTCHours(17, 0, 0, 0);
+                if (selectedDate > now) {
+                    selectedDate.setUTCDate(selectedDate.getUTCDate() - 1);
+                }
+                filtered = filtered.filter(activity => activityDate(activity.period) >= selectedDate);
             }
         }
 
@@ -228,7 +282,61 @@
         });
     }
 
-    $: filteredActivities = playerData ? filterActivities([...playerData.activityHistory], selectedActivityType, selectedTimespan) : [];
+    let currentTime = new Date();
+
+    function scheduleNextMidnightUpdate() {
+        const now = new Date();
+        const tomorrow = new Date(now);
+        tomorrow.setDate(tomorrow.getDate() + 1);
+        tomorrow.setHours(0, 0, 0, 0);
+        const msUntilMidnight = tomorrow.getTime() - now.getTime();
+        
+        setTimeout(() => {
+            currentTime = new Date();
+            scheduleNextMidnightUpdate();
+        }, msUntilMidnight);
+    }
+    
+    scheduleNextMidnightUpdate();
+
+    $: minDate = (() => {
+        const now = currentTime;
+        if (preferences.useRealTime) {
+            return new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+        } else {
+            const day = now.getUTCDay();
+            const daysSinceTuesday = (day + 5) % 7;
+            const lastTuesday = new Date(now);
+            lastTuesday.setUTCDate(now.getUTCDate() - daysSinceTuesday);
+            lastTuesday.setUTCHours(17, 0, 0, 0);
+            if (lastTuesday > now) {
+                lastTuesday.setUTCDate(lastTuesday.getUTCDate() - 7);
+            }
+            const targetDate = new Date(lastTuesday);
+            targetDate.setUTCDate(lastTuesday.getUTCDate() - 21);
+            return targetDate.toISOString().split('T')[0];
+        }
+    })();
+
+    $: maxDate = (() => {
+        const d = currentTime;
+        const year = d.getFullYear();
+        const month = String(d.getMonth() + 1).padStart(2, '0');
+        const day = String(d.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+    })();
+
+    $: if (customStartDate && customStartDate < minDate) {
+        customStartDate = minDate;
+    }
+
+    let filteredActivities: CompletedActivity[] = [];
+    $: if (playerData && selectedActivityType && selectedTimespan) {
+        debouncedFilterActivities();
+    }
+    $: if (selectedTimespan === 'custom' && customStartDate) {
+        debouncedFilterActivities();
+    }
     $: filteredClears = filteredActivities.filter(a => a.completed).length;
     $: averageClearTime = calculateAverageClearTime(filteredActivities);
 
@@ -243,7 +351,8 @@
     $: if (playerData && selectedTimespan) {
         emit('filter-changed', {
             timespan: selectedTimespan,
-            activityType: selectedActivityType
+            activityType: selectedActivityType,
+            customStartDate: selectedTimespan === 'custom' ? customStartDate : undefined
         }).catch(console.error);
     }
 
@@ -342,7 +451,8 @@
         const updatedPrefs = {
             ...currentPrefs,
             filterActivityType: selectedActivityType,
-            filterTimespan: selectedTimespan.toString()
+            filterTimespan: selectedTimespan.toString(),
+            customStartDate: customStartDate
         };
         await ipc.setPreferences(updatedPrefs);
     }
@@ -359,6 +469,9 @@
     $: if (selectedActivityType && selectedTimespan) {
         debouncedSavePreferences();
     }
+    $: if (customStartDate) {
+        debouncedSavePreferences();
+    }
 
     async function init() {
         const savedPrefs = await ipc.getPreferences();
@@ -366,7 +479,8 @@
         document.documentElement.style.setProperty('--primary-background', savedPrefs.primaryBackground);
         document.documentElement.style.setProperty('--secondary-background', savedPrefs.secondaryBackground);
         selectedActivityType = savedPrefs.filterActivityType || 'all';
-        selectedTimespan = (savedPrefs.filterTimespan || '1') as '1' | '7' | '30';
+        selectedTimespan = (savedPrefs.filterTimespan || '1') as '1' | '7' | '30' | 'custom';
+        customStartDate = savedPrefs.customStartDate || '';
         timerMode = savedPrefs.timerMode || 'default';
         ipc.setTimerMode(timerMode).catch(console.error);
 
@@ -405,11 +519,11 @@
                 <div class="error-actions">
                     <p>If this error persists, consider: </p>
                     <ul>
-                        <li>- Restarting groundsub</li>
-                        <li>- Restarting your computer / router</li>
-                        <li>- Checking the Bungie API status <a href="{BUNGIE_API_STATUS}" target="_blank" rel="noopener noreferrer">here</a></li>
-                        <li>- Opening an issue on GitHub <a href="{REPOSITORY_LINK_ISSUES}" target="_blank" rel="noopener noreferrer">here</a></li>
-                        <li>- Messaging me on discord: xxccss</li>
+                        <li>• Restarting groundsub</li>
+                        <li>• Restarting your computer / router</li>
+                        <li>• Checking the Bungie API status <a href="{BUNGIE_API_STATUS}" target="_blank" rel="noopener noreferrer">here</a></li>
+                        <li>• Opening an issue on GitHub <a href="{REPOSITORY_LINK_ISSUES}" target="_blank" rel="noopener noreferrer">here</a></li>
+                        <li>• Messaging me on discord: xxccss</li>
                     </ul>
                 </div>
             </div>
@@ -487,7 +601,7 @@
                             getAllOptions={searchActivities}
                             getAllActivityOptions={getAllActivityOptions}
                             placeholder="Search activities..."
-                            width="152px"
+                            width="132px"
                         />
                     </div>
                     <div class="filter-group">
@@ -496,8 +610,22 @@
                             options={timespanOptions}
                             searchable={false}
                             width="90px"
+                            customDisplayLabel={timespanDisplayLabel}
                         />
                     </div>
+                    {#if selectedTimespan === 'custom'}
+                        <div class="filter-group">
+                            <input
+                                type="date"
+                                bind:value={customStartDate}
+                                class="calendar-input"
+                                min={minDate}
+                                max={maxDate}
+                                on:selectstart|preventDefault
+                                on:mousedown|preventDefault
+                            />
+                        </div>
+                    {/if}
                     <div class="stats-row">
                     {#if preferences.displayAverageClearTimeDetails}
                     <div class="avg-time-box">
@@ -543,6 +671,8 @@
                         activityInfo={activityInfoMap[activity.activityHash]}
                         showTimestamp={preferences.showTimestampInstead}
                         raidLinkProvider={preferences.raidLinkProvider}
+                        displayDifferenceIndicator={preferences.displayDifferenceIndicator}
+                        averageTime={averageClearTime}
                     />
                 {/each}
                 {#if filteredActivities.length == 0}
@@ -551,6 +681,8 @@
                             {preferences.useRealTime ? 'No activities completed in the last 24 hours.' : 'No activities completed today.'}
                         {:else if selectedTimespan === '7'}
                             {preferences.useRealTime ? 'No activities completed in the last 7 days.' : 'No activities completed this week.'}
+                        {:else if selectedTimespan === 'custom'}
+                            {customStartDate ? `No activities completed since ${new Date(customStartDate).toLocaleDateString()}.` : 'Please select a start date.'}
                         {:else}
                             {preferences.useRealTime ? 'No activities completed in the last 30 days.' : 'No activities completed this month.'}
                         {/if}
@@ -564,6 +696,7 @@
         </div>
     {/if}
 </main>
+
 
 <style>
     .loader {
@@ -767,5 +900,54 @@
         color: #aaa;
         font-size: 14px;
         margin: 0;
+    }
+
+    .calendar-input {
+        appearance: none;
+        -webkit-appearance: none;
+        -moz-appearance: none;
+        background: rgba(255, 255, 255, 0.035);
+        backdrop-filter: blur(8px);
+        border: 1px solid rgba(255, 255, 255, 0.06);
+        border-radius: 0;
+        padding: 0;
+        color: transparent;
+        font-size: 0;
+        cursor: pointer;
+        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
+        box-sizing: border-box;
+        height: 32px;
+        width: 32px;
+        overflow: hidden;
+        position: relative;
+    }
+
+    .calendar-input::-webkit-calendar-picker-indicator {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        width: 24px;
+        height: 24px;
+        cursor: pointer;
+        background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke-width='1.5' stroke='white'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' d='M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 0 1 2.25-2.25h13.5A2.25 2.25 0 0 1 21 7.5v11.25m-18 0A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75m-18 0v-7.5A2.25 2.25 0 0 1 5.25 9h13.5A2.25 2.25 0 0 1 21 11.25v7.5m-9-6h.008v.008H12v-.008ZM12 15h.008v.008H12V15Zm0 2.25h.008v.008H12v-.008ZM9.75 15h.008v.008H9.75V15Zm0 2.25h.008v.008H9.75v-.008ZM7.5 15h.008v.008H7.5V15Zm0 2.25h.008v.008H7.5v-.008Zm6.75-4.5h.008v.008h-.008v-.008Zm0 2.25h.008v.008h-.008V15Zm0 2.25h.008v.008h-.008v-.008Zm2.25-4.5h.008v.008H16.5v-.008Zm0 2.25h.008v.008H16.5V15Z'/%3E%3C/svg%3E") no-repeat center;
+        background-size: contain;
+        filter: none;
+    }
+
+    .calendar-input::-webkit-inner-spin-button,
+    .calendar-input::-webkit-clear-button {
+        display: none;
+    }
+
+    .calendar-input:focus {
+        outline: none;
+        border-color: var(--primary-highlight, #4a9eff);
+        box-shadow: 0 0 0 1px var(--primary-highlight, #4a9eff);
+    }
+
+    .calendar-input:hover {
+        background: rgba(255, 255, 255, 0.08);
+        border-color: rgba(255, 255, 255, 0.2);
     }
 </style>

@@ -16,6 +16,7 @@ use config::{
 };
 use consts::{APP_NAME, APP_VER, NAMED_PIPE};
 use pollers::{
+    media::{media_poller, get_current_media},
     overlay::overlay_poller,
     playerdata::{PlayerDataPoller, PlayerDataStatus},
     timer::{TimerPoller, TimerMode},
@@ -45,6 +46,9 @@ struct TimerPollerContainer(Mutex<TimerPoller>);
 
 #[derive(Default)]
 struct OverlayPollerHandle(Mutex<Option<JoinHandle<()>>>);
+
+#[derive(Default)]
+struct MediaPollerHandle(Mutex<Option<JoinHandle<()>>>);
 
 #[tauri::command]
 async fn open_preferences(handle: AppHandle) -> Result<(), tauri::Error> {
@@ -258,7 +262,7 @@ fn open_preferences_window(handle: &AppHandle) -> Result<(), tauri::Error> {
     )
     .title(APP_NAME)
     .decorations(false)
-    .inner_size(400.0, 500.0)
+    .inner_size(400.0, 550.0)
     .resizable(false)
     .visible(false)
     .build()?;
@@ -358,6 +362,7 @@ async fn main() -> anyhow::Result<()> {
         .manage(PlayerDataPollerContainer::default())
         .manage(TimerPollerContainer::default())
         .manage(OverlayPollerHandle::default())
+        .manage(MediaPollerHandle::default())
         .system_tray(
             SystemTray::new().with_menu(
                 SystemTrayMenu::new()
@@ -399,6 +404,7 @@ async fn main() -> anyhow::Result<()> {
             set_timer_mode,
             clear_timer,
             clear_and_restart_timer,
+            get_current_media,
         ])
         .setup(|app| {
             let handle = app.handle();
@@ -428,6 +434,13 @@ async fn main() -> anyhow::Result<()> {
                 {
                     let timer_container = handle.state::<TimerPollerContainer>();
                     timer_container.0.lock().await.reset(handle.clone()).await;
+                }
+
+                {
+                    let media_handle = handle.clone();
+                    async_runtime::spawn_blocking(move || {
+                        async_runtime::block_on(media_poller(media_handle));
+                    });
                 }
             });
 

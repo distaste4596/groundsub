@@ -32,7 +32,7 @@
             }
         },
         "security": {
-            "csp": "default-src 'self' object-src 'none'"
+            "csp": "default-src 'self' data: object-src 'none'"
         },
         "systemTray": {
             "iconPath": "./icons/icon.ico"

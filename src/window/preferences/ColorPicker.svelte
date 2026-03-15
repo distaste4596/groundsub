@@ -6,7 +6,16 @@
     
     const dispatch = createEventDispatcher<{ change: string }>();
     
+    let lastUpdateTime = 0;
+    const FRAME_INTERVAL = 1000 / 30;
+    
     function handleInput(e: Event) {
+        const now = Date.now();
+        if (now - lastUpdateTime < FRAME_INTERVAL) {
+            return;
+        }
+        
+        lastUpdateTime = now;
         const target = e.target as HTMLInputElement;
         value = target.value;
         dispatch('change', value);

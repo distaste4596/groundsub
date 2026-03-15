@@ -122,7 +122,7 @@ impl PlayerDataPoller {
                 match res {
                     Ok(_) => {
                         handle_success(&mut lock);
-                        
+
                         let playerdata = PlayerData {
                             current_activity: current_activity,
                             activity_history: Vec::new(),
@@ -198,12 +198,12 @@ fn handle_error(
     app_handle: &AppHandle,
 ) {
     lock.last_error = Some(error_message.clone());
-    
+
     if lock.is_startup {
         lock.error = Some(error_message);
     } else {
         lock.consecutive_error_count += 1;
-        
+
         if lock.consecutive_error_count >= 3 {
             lock.error = Some(error_message);
         }
@@ -248,6 +248,10 @@ fn dedup_activities_prioritizing_completed(activities: Vec<CompletedActivity>) -
         } else {
             if let Some(existing) = deduped_activities.iter_mut().find(|a| a.instance_id == *instance_key) {
                 if !existing.completed && activity.completed {
+                    *existing = activity;
+                } else if existing.completed && !activity.completed {
+                    continue;
+                } else {
                     *existing = activity;
                 }
             }

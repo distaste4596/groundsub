@@ -63,6 +63,18 @@ export function formatTimeWithUnit(seconds: number): string {
     }
 }
 
+export function calculateDifferenceFromAverage(activity: CompletedActivity, averageTime: number): number {
+    if (!activity.completed || averageTime === 0) return 0;
+    return activity.activityDurationSeconds - averageTime;
+}
+
+export function formatDifference(difference: number): string {
+    if (difference === 0) return "";
+    const sign = difference > 0 ? "+" : "-";
+    const absDiff = Math.abs(difference);
+    return `${sign}${formatTimeWithUnit(absDiff)}`;
+}
+
 export function resolveActivityName(activityHash: number, fallbackName: string): string {
     if (Object.prototype.hasOwnProperty.call(KNOWN_RAIDS, activityHash)) {
         return KNOWN_RAIDS[activityHash as keyof typeof KNOWN_RAIDS];

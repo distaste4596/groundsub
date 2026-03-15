@@ -16,6 +16,7 @@ pub struct Preferences {
     pub show_timestamp_instead: bool,
     pub use_real_time: bool,
     pub display_average_clear_time_details: bool,
+    pub display_difference_indicator: bool,
     pub filter_activity_type: String,
     pub filter_timespan: String,
     pub timer_mode: String,
@@ -24,9 +25,13 @@ pub struct Preferences {
     pub secondary_background: String,
     pub primary_highlight: String,
     pub clear_text_color: String,
+    pub incomplete_color: String,
+    pub completed_color: String,
     pub overlay_position: String,
     pub custom_overlay_x: i32,
     pub custom_overlay_y: i32,
+    pub custom_start_date: String,
+    pub display_now_playing: bool,
 }
 
 impl Default for Preferences {
@@ -42,6 +47,7 @@ impl Default for Preferences {
             show_timestamp_instead: false,
             use_real_time: false,
             display_average_clear_time_details: false,
+            display_difference_indicator: false,
             filter_activity_type: "all".to_string(),
             filter_timespan: "1".to_string(),
             timer_mode: "default".to_string(),
@@ -50,9 +56,13 @@ impl Default for Preferences {
             secondary_background: "#180f1c".to_string(),
             primary_highlight: "#74259c".to_string(),
             clear_text_color: "#ffffff".to_string(),
+            incomplete_color: "#ee3333".to_string(),
+            completed_color: "#33ee33".to_string(),
             overlay_position: "left".to_string(),
             custom_overlay_x: 0,
             custom_overlay_y: 0,
+            custom_start_date: String::new(),
+            display_now_playing: false,
         }
     }
 }

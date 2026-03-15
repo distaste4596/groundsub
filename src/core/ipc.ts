@@ -1,5 +1,5 @@
 import { invoke } from "@tauri-apps/api/tauri";
-import type { ActivityInfo, BungieProfile, PlayerDataStatus, Preferences, Profile, ProfileInfo, Profiles } from "./types";
+import type { ActivityInfo, BungieProfile, PlayerDataStatus, Preferences, Profile, ProfileInfo, Profiles, MediaInfo } from "./types";
 
 export function openPreferences(): Promise<void> {
     return invoke("open_preferences");
@@ -51,4 +51,8 @@ export function clearTimer(): Promise<void> {
 
 export function clearAndRestartTimer(): Promise<void> {
     return invoke("clear_and_restart_timer");
+}
+
+export function getCurrentMedia(): Promise<MediaInfo> {
+    return invoke("get_current_media");
 }

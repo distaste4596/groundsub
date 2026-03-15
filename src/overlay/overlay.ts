@@ -5,9 +5,9 @@ import { createPopup as _createPopup, type Popup } from "./popups";
 import type { TauriEvent, Preferences, CurrentActivity, PlayerDataStatus } from "../core/types";
 import { emit, listen } from "@tauri-apps/api/event";
 import { countClears, determineActivityType, calculateAverageClearTime, formatTimeWithUnit } from "../core/util";
-import { getPlayerdata, getPreferences } from "../core/ipc";
+import { getPlayerdata, getPreferences, getCurrentMedia } from "../core/ipc";
 import { THEME_UPDATE_EVENT } from "../core/theme";
-import { type TimerState } from "../core/types";
+import { type TimerState, type MediaInfo } from "../core/types";
 import { GROUPED_RAIDS, GROUPED_DUNGEONS, KNOWN_RAIDS, KNOWN_DUNGEONS, EXCLUDED_ACTIVITIES } from "../core/consts";
 
 const widgetElem = document.querySelector<HTMLElement>("#widget")!;
@@ -22,6 +22,11 @@ const dailyElem = document.querySelector<HTMLElement>("#daily")!;
 const timespanTextElem = document.querySelector<HTMLElement>("#timespan-text")!;
 const averageTimeElem = document.querySelector<HTMLElement>("#average-time")!;
 const averageTimeTextElem = document.querySelector<HTMLElement>("#average-time-text")!;
+const nowPlayingElem = document.querySelector<HTMLElement>("#now-playing")!;
+const nowPlayingSongElem = document.querySelector<HTMLElement>("#now-playing-song")!;
+const nowPlayingTitleElem = document.querySelector<HTMLElement>("#now-playing-title")!;
+const nowPlayingArtistElem = document.querySelector<HTMLElement>("#now-playing-artist")!;
+const nowPlayingIconElem = document.querySelector<SVGElement>("#now-playing > svg")!;
 
 let currentActivity: CurrentActivity | null;
 let lastRaidId: string | undefined;
@@ -33,10 +38,11 @@ let timerWasActive: boolean = false;
 
 let shown = false;
 let prefs: Preferences;
-let currentTimespan: '1' | '7' | '30' = '1';
+let currentTimespan: '1' | '7' | '30' | 'custom' = '1';
 let currentActivityType: 'all' | 'raids' | 'dungeons' | 'strikes' | 'lost-sectors' | 'story' | 'other' | string = 'all';
 let previousUseRealTime: boolean;
 let lastErrorPopup: string | null = null;
+let currentCustomStartDate: string = '';
 
 let cachedPlayerData: PlayerDataStatus | null = null;
 let lastPlayerDataCheck: number = 0;
@@ -48,6 +54,8 @@ let cachedFilteredActivities: any[] = [];
 let lastFilterCacheKey: string = '';
 let lastFilterCacheTime: number = 0;
 const FILTER_CACHE_DURATION = 5000;
+
+let currentMediaInfo: MediaInfo | null = null;
 
 function updateTimespanText() {
     if (!timespanTextElem) return;
@@ -61,6 +69,17 @@ function updateTimespanText() {
             break;
         case '30':
             timespanTextElem.textContent = ' this month';
+            break;
+        case 'custom':
+            if (currentCustomStartDate) {
+                const now = new Date();
+                const startDate = new Date(currentCustomStartDate);
+                const daysDiff = Math.floor((now.getTime() - startDate.getTime()) / (24 * 60 * 60 * 1000));
+                const dayText = daysDiff === 1 ? 'day' : 'days';
+                timespanTextElem.textContent = ` in ${daysDiff} ${dayText}`;
+            } else {
+                timespanTextElem.textContent = ' (custom)';
+            }
             break;
     }
 }
@@ -101,13 +120,21 @@ async function init() {
         checkTimerVisibility();
     });
 
-    const unlisten = await listen<{ timespan: '1' | '7' | '30', activityType: string }>('filter-changed', async (event) => {
+    const unlisten = await listen<{ timespan: '1' | '7' | '30' | 'custom', activityType: string, customStartDate?: string }>('filter-changed', async (event) => {
         let needsRefresh = false;
         
         if (event.payload.timespan !== currentTimespan) {
             currentTimespan = event.payload.timespan;
             updateTimespanText();
             needsRefresh = true;
+        }
+        
+        if (event.payload.customStartDate !== currentCustomStartDate) {
+            currentCustomStartDate = event.payload.customStartDate || '';
+            if (currentTimespan === 'custom') {
+                updateTimespanText();
+                needsRefresh = true;
+            }
         }
         
         if (event.payload.activityType !== currentActivityType) {
@@ -150,6 +177,14 @@ async function init() {
             document.documentElement.style.setProperty('--clear-text-color', clearTextColor);
         }
     });
+
+    listen<MediaInfo>('media-update', (event) => {
+        updateNowPlaying(event.payload);
+    });
+
+    getCurrentMedia().then(mediaInfo => {
+        updateNowPlaying(mediaInfo);
+    }).catch(() => {});
 
     appWindow.listen("preferences_update", (p: TauriEvent<Preferences>) => applyPreferences(p.payload));
     appWindow.listen("playerdata_update", (e: TauriEvent<PlayerDataStatus>) => refresh(e.payload));
@@ -242,7 +277,7 @@ function filterActivities(activities: any[], timespan: string, activityType: str
     
     let filtered = activities.filter(activity => !EXCLUDED_ACTIVITIES.includes(activity.activityHash));
     
-    const cacheKey = `${timespan}_${activityType}_${prefs?.useRealTime}_${filtered.length}`;
+    const cacheKey = `${timespan}_${activityType}_${prefs?.useRealTime}_${currentCustomStartDate}_${filtered.length}`;
     const now = Date.now();
     
     if (cachedFilteredActivities.length > 0 && 
@@ -264,6 +299,9 @@ function filterActivities(activities: any[], timespan: string, activityType: str
         
         if (timespan === '1' || timespan === '7' || timespan === '30') {
             const cutoff = cutoffs[timespan as keyof typeof cutoffs];
+            filtered = filtered.filter(activity => activityDate(activity.period) >= cutoff);
+        } else if (timespan === 'custom' && currentCustomStartDate) {
+            const cutoff = new Date(currentCustomStartDate);
             filtered = filtered.filter(activity => activityDate(activity.period) >= cutoff);
         }
     } else {
@@ -292,6 +330,13 @@ function filterActivities(activities: any[], timespan: string, activityType: str
             targetDate.setUTCDate(lastTuesday.getUTCDate() - 21);
             targetDate.setUTCHours(17, 0, 0, 0);
             filtered = filtered.filter(activity => activityDate(activity.period) >= targetDate);
+        } else if (timespan === 'custom' && currentCustomStartDate) {
+            const selectedDate = new Date(currentCustomStartDate);
+            selectedDate.setUTCHours(17, 0, 0, 0);
+            if (selectedDate > nowDate) {
+                selectedDate.setUTCDate(selectedDate.getUTCDate() - 1);
+            }
+            filtered = filtered.filter(activity => activityDate(activity.period) >= selectedDate);
         }
     }
     
@@ -463,7 +508,7 @@ function applyPreferences(p: Preferences) {
         }
     }
 
-    const svgs = document.querySelectorAll<SVGElement>("#widget-content svg");
+    const svgs = document.querySelectorAll<SVGElement>("#widget-content svg:not(#now-playing > svg)");
     svgs.forEach(svg => {
         if (p.displayIcons) {
             svg.classList.remove("hidden");
@@ -473,10 +518,12 @@ function applyPreferences(p: Preferences) {
     });
 
     if (widgetElem) {
-        widgetElem.classList.remove("position-left", "position-right", "position-custom");
+        widgetElem.classList.remove("position-left", "position-right", "position-bottom-right", "position-custom");
         widgetElem.style.transform = "";
         if (p.overlayPosition === "right") {
             widgetElem.classList.add("position-right");
+        } else if (p.overlayPosition === "bottom-right") {
+            widgetElem.classList.add("position-bottom-right");
         } else if (p.overlayPosition === "custom") {
             widgetElem.classList.add("position-custom");
             widgetElem.style.transform = `translate(${p.customOverlayX}px, ${p.customOverlayY}px)`;
@@ -495,7 +542,50 @@ function applyPreferences(p: Preferences) {
         })();
     }
 
+    if (currentMediaInfo && currentMediaInfo.hasMedia && p.displayNowPlaying) {
+        updateNowPlaying(currentMediaInfo);
+    }
+
     checkTimerVisibility();
+    updateNowPlayingVisibility();
+}
+
+function updateNowPlaying(mediaInfo: MediaInfo) {
+    currentMediaInfo = mediaInfo;
+    
+    if (!mediaInfo.hasMedia) {
+        nowPlayingElem.classList.add("hidden");
+        nowPlayingIconElem.classList.add("hidden");
+        nowPlayingTitleElem.textContent = '';
+        nowPlayingArtistElem.textContent = '';
+        return;
+    }
+
+    if (prefs?.displayIcons) {
+        nowPlayingIconElem.classList.remove("hidden");
+    } else {
+        nowPlayingIconElem.classList.add("hidden");
+    }
+    nowPlayingTitleElem.textContent = mediaInfo.title || '';
+    nowPlayingArtistElem.textContent = mediaInfo.artist || '';
+    
+    updateNowPlayingVisibility();
+}
+
+function updateNowPlayingVisibility() {
+    if (!prefs || !nowPlayingElem) return;
+    
+    if (prefs.displayNowPlaying && currentMediaInfo?.hasMedia) {
+        const hasContent = (nowPlayingTitleElem.textContent && nowPlayingTitleElem.textContent.length > 0) ||
+                          (nowPlayingArtistElem.textContent && nowPlayingArtistElem.textContent.length > 0);
+        if (hasContent) {
+            nowPlayingElem.classList.remove("hidden");
+        } else {
+            nowPlayingElem.classList.add("hidden");
+        }
+    } else {
+        nowPlayingElem.classList.add("hidden");
+    }
 }
 
 init();

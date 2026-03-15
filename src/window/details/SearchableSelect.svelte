@@ -8,13 +8,15 @@
     export let placeholder: string = 'Search...';
     export let searchable: boolean = true;
     export let width: string = '160px';
+    export let customDisplayLabel: string | undefined = undefined;
     let searchInput: HTMLInputElement;
     let isOpen: boolean = false;
+    let searchTimeout: number;
+    let selectElement: HTMLDivElement;
+    let dropdownPosition: { top: number; left: number } = { top: 0, left: 0 };
     let searchQuery: string = '';
     let filteredOptions: { value: string; label: string }[] = [];
     let highlightedIndex: number = -1;
-    let selectElement: HTMLDivElement;
-    let dropdownPosition: { top: number; left: number } = { top: 0, left: 0 };
 
     $: filteredOptions = searchable && searchQuery.trim() !== '' 
         ? (getAllOptions ? getAllOptions(searchQuery) : options).slice(0, 5)
@@ -120,7 +122,7 @@
         }
     });
 
-    $: displayLabel = (() => {
+    $: displayLabel = customDisplayLabel !== undefined ? customDisplayLabel : (() => {
         let label = options.find(opt => opt.value === value)?.label;
         
         if (!label && getAllActivityOptions) {
@@ -187,9 +189,8 @@
         overflow: visible !important;
     }
 
-    .searchable-select *,
-    .searchable-select *::before,
-    .searchable-select *::after {
+    .searchable-select *:not(.selected-value):not(.option)::before,
+    .searchable-select *:not(.selected-value):not(.option)::after {
         overflow: visible !important;
     }
 
@@ -206,13 +207,14 @@
         font-size: 13px;
         width: 100%;
         cursor: pointer;
-        transition: all 0.1s ease;
+        transition: background-color 0.05s ease, border-color 0.05s ease;
         font-family: inherit;
         box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
         height: 32px;
         display: flex;
         align-items: center;
         box-sizing: border-box;
+        will-change: background-color;
     }
 
     .select-trigger:hover {
@@ -226,7 +228,7 @@
 
     .selected-value {
         flex: 1;
-        overflow: hidden;
+        overflow: hidden !important;
         text-overflow: ellipsis;
         white-space: nowrap;
     }
@@ -241,6 +243,7 @@
         z-index: 9999;
         overflow: visible !important;
         box-sizing: border-box;
+        will-change: transform;
     }
 
     .search-input {
@@ -269,7 +272,6 @@
     .option {
         padding: 8px 12px;
         cursor: pointer;
-        transition: background-color 0.05s ease;
         font-size: 13px;
     }
 

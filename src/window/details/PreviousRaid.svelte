@@ -1,5 +1,5 @@
 <script lang="ts">
-    import { determineActivityType } from "../../core/util";
+    import { determineActivityType, calculateDifferenceFromAverage, formatDifference } from "../../core/util";
     import { KNOWN_RAIDS, KNOWN_DUNGEONS } from "../../core/consts";
     import type { ActivityInfo, CompletedActivity, Preferences } from "../../core/types";
     import Dot from "./Dot.svelte";
@@ -11,6 +11,8 @@
     export let activityInfo: ActivityInfo | undefined;
     export let showTimestamp = false;
     export let raidLinkProvider: string = 'raid.report';
+    export let displayDifferenceIndicator = false;
+    export let averageTime = 0;
 
     let displayText = '';
     let displayName = '';
@@ -18,6 +20,8 @@
     let isLoading = false;
 
     $: completedStatus = activity.completed;
+    $: difference = displayDifferenceIndicator && completedStatus ? calculateDifferenceFromAverage(activity, averageTime) : 0;
+    $: differenceText = displayDifferenceIndicator && completedStatus ? formatDifference(difference) : "";
 
     $: {
         updateDisplayText();
@@ -119,6 +123,9 @@
         </p>
         <p>
             {activity.activityDuration}
+            {#if differenceText}
+                <span class="difference {difference > 0 ? 'incomplete' : 'Minus'}">{differenceText}</span>
+            {/if}
             <span class="center-dot" />
             {displayText}
         </p>
@@ -177,6 +184,28 @@
         background-color: #ccc;
         border-radius: 50%;
         margin: 0 8px;
+    }
+
+    .difference {
+        display: inline-block;
+        vertical-align: middle;
+        margin: 0 2px;
+        font-size: 14px;
+        font-weight: 300;
+        padding: 1px 3px;
+        position: relative;
+        top: -1px;
+        text-align: center;
+    }
+
+    .difference.incomplete {
+        color: rgba(from var(--difference-incomplete-color) r g b / 0.8);
+        background-color: rgba(from var(--difference-incomplete-color) r g b / 0.1);
+    }
+
+    .difference.Minus {
+        color: rgba(from var(--difference-completed-color) r g b / 0.8);
+        background-color: rgba(from var(--difference-completed-color) r g b / 0.1);
     }
 
     a {

@@ -51,7 +51,9 @@
                 primaryBackground: originalPreferences.primaryBackground,
                 secondaryBackground: originalPreferences.secondaryBackground,
                 primaryHighlight: originalPreferences.primaryHighlight,
-                clearTextColor: originalPreferences.clearTextColor
+                clearTextColor: originalPreferences.clearTextColor,
+                incompleteColor: originalPreferences.incompleteColor,
+                completedColor: originalPreferences.completedColor
             });
         }
         appWindow.close();
@@ -66,7 +68,9 @@
                     primaryBackground: originalPreferences.primaryBackground,
                     secondaryBackground: originalPreferences.secondaryBackground,
                     primaryHighlight: originalPreferences.primaryHighlight,
-                    clearTextColor: originalPreferences.clearTextColor
+                    clearTextColor: originalPreferences.clearTextColor,
+                    incompleteColor: originalPreferences.incompleteColor,
+                    completedColor: originalPreferences.completedColor
                 });
             }
         };
@@ -122,17 +126,47 @@
         });
     }
 
+    async function handleIncompleteColorChange(event: ColorChangeEvent) {
+        const color = event.detail;
+        preferences.incompleteColor = color;
+        await updateTheme({
+            primaryBackground: preferences.primaryBackground,
+            secondaryBackground: preferences.secondaryBackground,
+            primaryHighlight: preferences.primaryHighlight,
+            clearTextColor: preferences.clearTextColor,
+            incompleteColor: color,
+            completedColor: preferences.completedColor
+        });
+    }
+
+    async function handleCompletedColorChange(event: ColorChangeEvent) {
+        const color = event.detail;
+        preferences.completedColor = color;
+        await updateTheme({
+            primaryBackground: preferences.primaryBackground,
+            secondaryBackground: preferences.secondaryBackground,
+            primaryHighlight: preferences.primaryHighlight,
+            clearTextColor: preferences.clearTextColor,
+            incompleteColor: preferences.incompleteColor,
+            completedColor: color
+        });
+    }
+
     async function resetToDefaultColors() {
         preferences.primaryBackground = '#12171c';
         preferences.secondaryBackground = '#180f1c';
         preferences.primaryHighlight = '#74259c';
         preferences.clearTextColor = '#ffffff';
+        preferences.incompleteColor = '#ff6b6b';
+        preferences.completedColor = '#51cf66';
         
         await updateTheme({
             primaryBackground: preferences.primaryBackground,
             secondaryBackground: preferences.secondaryBackground,
             primaryHighlight: preferences.primaryHighlight,
-            clearTextColor: preferences.clearTextColor
+            clearTextColor: preferences.clearTextColor,
+            incompleteColor: preferences.incompleteColor,
+            completedColor: preferences.completedColor
         });
         
         const colorPickers = document.querySelectorAll('color-picker');
@@ -236,6 +270,13 @@
                                     >Display activity clear notifications</StyledCheckbox
                                 >
                             </div>
+                            <div class="preference">
+                                <StyledCheckbox
+                                    bind:checked={preferences.displayNowPlaying}
+                                    disabled={!preferences.enableOverlay}
+                                    >Display now playing (Spotify, etc.)</StyledCheckbox
+                                >
+                            </div>
                         </div>
                         <div class="preference-group">
                             <div class="preference">
@@ -246,6 +287,7 @@
                                         options={[
                                             { value: 'left', label: 'Left (Default)' },
                                             { value: 'right', label: 'Right' },
+                                            { value: 'bottom-right', label: 'Bottom Right' },
                                             { value: 'custom', label: 'Custom' }
                                         ]}
                                         searchable={false}
@@ -255,28 +297,28 @@
                                 </div>
                             </div>
                             {#if preferences.overlayPosition === 'custom'}
-                                <div class="preference">
-                                    <div class="toggle-inline">
-                                        <span class="toggle-label">Custom X offset:</span>
-                                        <input
-                                            type="number"
-                                            bind:value={preferences.customOverlayX}
-                                            class="number-input"
-                                            on:focus={(e) => e.currentTarget.select()}
-                                        />
-                                    </div>
+                            <div class="offset-inputs">
+                                <div class="offset-input-group">
+                                    <label for="custom-x">X offset:</label>
+                                    <input
+                                        id="custom-x"
+                                        type="number"
+                                        bind:value={preferences.customOverlayX}
+                                        class="number-input"
+                                        on:focus={(e) => e.currentTarget.select()}
+                                    />
                                 </div>
-                                <div class="preference">
-                                    <div class="toggle-inline">
-                                        <span class="toggle-label">Custom Y offset:</span>
-                                        <input
-                                            type="number"
-                                            bind:value={preferences.customOverlayY}
-                                            class="number-input"
-                                            on:focus={(e) => e.currentTarget.select()}
-                                        />
-                                    </div>
+                                <div class="offset-input-group">
+                                    <label for="custom-y">Y offset:</label>
+                                    <input
+                                        id="custom-y"
+                                        type="number"
+                                        bind:value={preferences.customOverlayY}
+                                        class="number-input"
+                                        on:focus={(e) => e.currentTarget.select()}
+                                    />
                                 </div>
+                            </div>
                             {/if}
                         </div>
                     </div>
@@ -298,6 +340,12 @@
                                 <StyledCheckbox
                                     bind:checked={preferences.displayAverageClearTimeDetails}
                                     >Display average clear time</StyledCheckbox>
+                            </div>
+                            <div class="preference sub-setting" class:disabled={!preferences.displayAverageClearTimeDetails}>
+                                <StyledCheckbox
+                                    bind:checked={preferences.displayDifferenceIndicator}
+                                    disabled={!preferences.displayAverageClearTimeDetails}
+                                    >Display difference from average time</StyledCheckbox>
                             </div>
                             <div class="preference">
                                 <div class="toggle-inline">
@@ -348,6 +396,22 @@
                                         on:change={handleClearTextColorChange}
                                     />
                                 </div>
+                                <div class="color-picker-row">
+                                    <div class="color-picker-container">
+                                        <ColorPickerComponent 
+                                            label="Completed"
+                                            bind:value={preferences.completedColor}
+                                            on:change={handleCompletedColorChange}
+                                        />
+                                    </div>
+                                    <div class="color-picker-container">
+                                        <ColorPickerComponent 
+                                            label="Incomplete"
+                                            bind:value={preferences.incompleteColor}
+                                            on:change={handleIncompleteColorChange}
+                                        />
+                                    </div>
+                                </div>
                             </div>
                             <div class="reset-button-container">
                                 <LineButton clickCallback={resetToDefaultColors}>Reset Colors</LineButton>
@@ -382,7 +446,7 @@
         margin: 12px 48px 16px 48px;
         display: flex;
         flex-direction: column;
-        height: 400px;
+        height: 450px;
     }
 
     .tab-navigation {
@@ -442,6 +506,10 @@
         white-space: normal;
     }
 
+    .preference.sub-setting.disabled {
+        opacity: 0.4;
+    }
+
     .color-options {
         display: flex;
         flex-direction: column;
@@ -459,6 +527,18 @@
         border-bottom: none;
     }
 
+    .color-picker-row {
+        display: flex;
+        gap: 12px;
+        margin-top: 2px;
+    }
+
+    .color-picker-row .color-picker-container {
+        flex: 1;
+        border-bottom: none;
+        min-width: 0;
+    }
+
     .error {
         color: var(--error);
     }
@@ -467,7 +547,8 @@
         display: flex;
         justify-content: flex-end;
         gap: 10px;
-        margin: 6px 0 0 0;
+        margin-top: auto;
+        padding-top: 20px;
     }
 
     .reset-button-container {
@@ -490,6 +571,24 @@
         width: 106px;
     }
 
+    .offset-inputs {
+        display: flex;
+        gap: 12px;
+        align-items: center;
+    }
+ 
+    .offset-input-group {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+    }
+ 
+    .offset-input-group label {
+        font-weight: 400;
+        color: rgba(255, 255, 255, 0.7);
+        font-size: 13px;
+    }
+
     .number-input {
         appearance: none;
         -webkit-appearance: none;
@@ -501,7 +600,7 @@
         padding: 6px 10px;
         color: rgba(255, 255, 255, 0.9);
         font-size: 13px;
-        width: 80px;
+        width: 77px;
         height: 32px;
         box-sizing: border-box;
         transition: all 0.1s ease;

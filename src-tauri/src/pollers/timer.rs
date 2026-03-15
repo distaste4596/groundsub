@@ -123,7 +123,7 @@ impl Timer {
     pub async fn check_activity_completed(&mut self, activity_history: &[CompletedActivity], app_handle: &AppHandle) {
         let state = self.state.lock().await;
 
-        if state.mode != TimerMode::Persistent || self.last_activity.is_none() || activity_history.is_empty() {
+        if state.mode != TimerMode::Persistent || activity_history.is_empty() {
             return;
         }
 
@@ -135,6 +135,7 @@ impl Timer {
         }
 
         self.known_completions.insert(completion_key.clone());
+        self.last_completed_activity_hash = Some(most_recent_activity.activity_hash);
 
         if let Some(ref last_activity) = self.last_activity {
             if most_recent_activity.activity_hash == last_activity.activity_hash {

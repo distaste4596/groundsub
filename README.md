@@ -31,8 +31,11 @@ Open Services -> Windows Time -> Properties -> Startup type: Automatic -> Apply*
 - **This Month / 30d**  
   Last 4 weekly resets or past 30 days
 
+- **Date**  
+  Custom date range (Range depends on the selected time option in the details section)
+
 ### Activity Filters
-- Selected Activities (Only works for Raids & Dungeons)
+- Search Activities (Only works for Raids & Dungeons)
 - All Activities
 - Raids
 - Dungeons
@@ -46,12 +49,14 @@ Open Services -> Windows Time -> Properties -> Startup type: Automatic -> Apply*
 - Toggle timer
 - Toggle icons
 - Show average clear time
+- Display playing now music (Spotify, etc.)
 - Overlay position
 
 **Details**
 - Show timestamps instead of elapsed time
 - Swap between Bungie time and real time
-- Show average clear time
+- Display average clear time
+- Display difference from average time
 - Select raid link provider (`raid.report` or `raidhub.io`)
 
 **Appearance**
@@ -59,6 +64,7 @@ Open Services -> Windows Time -> Properties -> Startup type: Automatic -> Apply*
 - Secondary color
 - Highlight color
 - Clear count / timer color
+- Completed / Incompleted color
 - Reset colors
 
 ---
