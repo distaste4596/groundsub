@@ -17,7 +17,9 @@
     let preferences: Preferences;
     let error: string;
     let originalPreferences: Preferences | null = null;
-    let activeTab: 'overlay' | 'details' | 'appearance' = 'overlay';
+    let activeTab: 'overlay' | 'details' = 'overlay';
+    let overlaySubTab: 'settings' | 'appearance' = 'settings';
+    let detailsSubTab: 'settings' | 'appearance' = 'settings';
 
     async function init() {
         const p = await ipc.getPreferences();
@@ -169,15 +171,50 @@
             completedColor: preferences.completedColor
         });
         
-        const colorPickers = document.querySelectorAll('color-picker');
-        colorPickers.forEach(picker => {
-            if (picker.shadowRoot) {
-                const input = picker.shadowRoot.querySelector('input[type="color"]');
-                if (input) {
-                    input.dispatchEvent(new Event('input', { bubbles: true }));
-                }
-            }
+        await handlePrimaryColorChange({ detail: '#12171c' } as ColorChangeEvent);
+        await handleSecondaryColorChange({ detail: '#180f1c' } as ColorChangeEvent);
+        await handleHighlightColorChange({ detail: '#74259c' } as ColorChangeEvent);
+        await handleClearTextColorChange({ detail: '#ffffff' } as ColorChangeEvent);
+        await handleIncompleteColorChange({ detail: '#ff6b6b' } as ColorChangeEvent);
+        await handleCompletedColorChange({ detail: '#51cf66' } as ColorChangeEvent);
+    }
+
+    async function resetOverlayColors() {
+        preferences.clearTextColor = '#d2d8ed';
+        
+        await updateTheme({
+            primaryBackground: preferences.primaryBackground,
+            secondaryBackground: preferences.secondaryBackground,
+            primaryHighlight: preferences.primaryHighlight,
+            clearTextColor: preferences.clearTextColor,
+            incompleteColor: preferences.incompleteColor,
+            completedColor: preferences.completedColor
         });
+        
+        await handleClearTextColorChange({ detail: '#d2d8ed' } as ColorChangeEvent);
+    }
+
+    async function resetDetailsColors() {
+        preferences.primaryBackground = '#12171c';
+        preferences.secondaryBackground = '#180f1c';
+        preferences.primaryHighlight = '#74259c';
+        preferences.incompleteColor = '#ff6b6b';
+        preferences.completedColor = '#51cf66';
+        
+        await updateTheme({
+            primaryBackground: preferences.primaryBackground,
+            secondaryBackground: preferences.secondaryBackground,
+            primaryHighlight: preferences.primaryHighlight,
+            clearTextColor: preferences.clearTextColor,
+            incompleteColor: preferences.incompleteColor,
+            completedColor: preferences.completedColor
+        });
+        
+        await handlePrimaryColorChange({ detail: '#12171c' } as ColorChangeEvent);
+        await handleSecondaryColorChange({ detail: '#180f1c' } as ColorChangeEvent);
+        await handleHighlightColorChange({ detail: '#74259c' } as ColorChangeEvent);
+        await handleIncompleteColorChange({ detail: '#ff6b6b' } as ColorChangeEvent);
+        await handleCompletedColorChange({ detail: '#51cf66' } as ColorChangeEvent);
     }
 
     onMount(() => {
@@ -210,212 +247,259 @@
                     class:active={activeTab === 'details'}
                     on:click={() => activeTab = 'details'}
                 >
-                    Details
-                </button>
-                <button 
-                    class="tab-button" 
-                    class:active={activeTab === 'appearance'}
-                    on:click={() => activeTab = 'appearance'}
-                >
-                    Appearance
+                    Details Window
                 </button>
             </div>
 
             <div class="tab-content">
                 {#if activeTab === 'overlay'}
                     <div class="tab-panel">
-                        <div class="preference">
-                            <StyledCheckbox bind:checked={preferences.enableOverlay}
-                                >Enable overlay</StyledCheckbox
+                        <div class="sub-tab-navigation">
+                            <button 
+                                class="sub-tab-button" 
+                                class:active={overlaySubTab === 'settings'}
+                                on:click={() => overlaySubTab = 'settings'}
                             >
+                                Settings
+                            </button>
+                            <button 
+                                class="sub-tab-button" 
+                                class:active={overlaySubTab === 'appearance'}
+                                on:click={() => overlaySubTab = 'appearance'}
+                            >
+                                Appearance
+                            </button>
                         </div>
-                        <div class="preference-group">
-                            <div class="preference">
-                                <StyledCheckbox
-                                    bind:checked={preferences.displayTimer}
-                                    disabled={!preferences.enableOverlay}
-                                    >Display timer</StyledCheckbox>
-                            </div>
-                            <div class="preference">
-                                <StyledCheckbox
-                                    bind:checked={preferences.displayMilliseconds}
-                                    disabled={!preferences.enableOverlay}
-                                    >Display timer milliseconds</StyledCheckbox>
-                            </div>
-                            <div class="preference">
-                                <StyledCheckbox
-                                    bind:checked={preferences.displayDailyClears}
-                                    disabled={!preferences.enableOverlay}
-                                    >Display clears count</StyledCheckbox
-                                >
-                            </div>
-                            <div class="preference">
-                                <StyledCheckbox
-                                    bind:checked={preferences.displayAverageClearTimeOverlay}
-                                    disabled={!preferences.enableOverlay}
-                                    >Display average clear time</StyledCheckbox
-                                >
-                            </div>
-                            <div class="preference">
-                                <StyledCheckbox
-                                    bind:checked={preferences.displayIcons}
-                                    disabled={!preferences.enableOverlay}
-                                    >Display icons</StyledCheckbox
-                                >
-                            </div>
-                            <div class="preference">
-                                <StyledCheckbox
-                                    bind:checked={preferences.displayClearNotifications}
-                                    disabled={!preferences.enableOverlay}
-                                    >Display activity clear notifications</StyledCheckbox
-                                >
-                            </div>
-                            <div class="preference">
-                                <StyledCheckbox
-                                    bind:checked={preferences.displayNowPlaying}
-                                    disabled={!preferences.enableOverlay}
-                                    >Display now playing (Spotify, etc.)</StyledCheckbox
-                                >
-                            </div>
-                        </div>
-                        <div class="preference-group">
-                            <div class="preference">
-                                <div class="toggle-inline">
-                                    <span class="toggle-label">Overlay position:</span>
-                                    <SearchableSelect
-                                        bind:value={preferences.overlayPosition}
-                                        options={[
-                                            { value: 'left', label: 'Left (Default)' },
-                                            { value: 'right', label: 'Right' },
-                                            { value: 'bottom-right', label: 'Bottom Right' },
-                                            { value: 'custom', label: 'Custom' }
-                                        ]}
-                                        searchable={false}
-                                        width="160px"
-                                        placeholder="Select position"
-                                    />
+                        
+                        <div class="sub-tab-content">
+                            {#if overlaySubTab === 'settings'}
+                                <div class="sub-tab-panel">
+                                    <div class="preference">
+                                        <StyledCheckbox bind:checked={preferences.enableOverlay}
+                                            >Enable overlay</StyledCheckbox
+                                        >
+                                    </div>
+                                    <div class="preference-group">
+                                        <div class="preference">
+                                            <StyledCheckbox
+                                                bind:checked={preferences.displayTimer}
+                                                disabled={!preferences.enableOverlay}
+                                                >Display timer</StyledCheckbox>
+                                        </div>
+                                        <div class="preference">
+                                            <StyledCheckbox
+                                                bind:checked={preferences.displayMilliseconds}
+                                                disabled={!preferences.enableOverlay}
+                                                >Display timer milliseconds</StyledCheckbox>
+                                        </div>
+                                        <div class="preference">
+                                            <StyledCheckbox
+                                                bind:checked={preferences.displayDailyClears}
+                                                disabled={!preferences.enableOverlay}
+                                                >Display clears count</StyledCheckbox
+                                            >
+                                        </div>
+                                        <div class="preference">
+                                            <StyledCheckbox
+                                                bind:checked={preferences.displayAverageClearTimeOverlay}
+                                                disabled={!preferences.enableOverlay}
+                                                >Display average clear time</StyledCheckbox
+                                            >
+                                        </div>
+                                        <div class="preference">
+                                            <StyledCheckbox
+                                                bind:checked={preferences.displayIcons}
+                                                disabled={!preferences.enableOverlay}
+                                                >Display icons</StyledCheckbox
+                                            >
+                                        </div>
+                                        <div class="preference">
+                                            <StyledCheckbox
+                                                bind:checked={preferences.displayClearNotifications}
+                                                disabled={!preferences.enableOverlay}
+                                                >Display activity clear notifications</StyledCheckbox
+                                            >
+                                        </div>
+                                        <div class="preference">
+                                            <StyledCheckbox
+                                                bind:checked={preferences.displayNowPlaying}
+                                                disabled={!preferences.enableOverlay}
+                                                >Display now playing (Spotify, etc.)</StyledCheckbox
+                                            >
+                                        </div>
+                                    </div>
                                 </div>
-                            </div>
-                            {#if preferences.overlayPosition === 'custom'}
-                            <div class="offset-inputs">
-                                <div class="offset-input-group">
-                                    <label for="custom-x">X offset:</label>
-                                    <input
-                                        id="custom-x"
-                                        type="number"
-                                        bind:value={preferences.customOverlayX}
-                                        class="number-input"
-                                        on:focus={(e) => e.currentTarget.select()}
-                                    />
+                            {:else if overlaySubTab === 'appearance'}
+                                <div class="sub-tab-panel">
+                                    <div class="preference-group">
+                                        <div class="preference">
+                                            <div class="toggle-inline">
+                                                <span class="toggle-label">Overlay position:</span>
+                                                <SearchableSelect
+                                                    bind:value={preferences.overlayPosition}
+                                                    options={[
+                                                        { value: 'left', label: 'Top Left' },
+                                                        { value: 'right', label: 'Top Right' },
+                                                        { value: 'bottom-left', label: 'Bottom Left' },
+                                                        { value: 'bottom-right', label: 'Bottom Right' }
+                                                    ]}
+                                                    searchable={false}
+                                                    width="160px"
+                                                    placeholder="Select position"
+                                                />
+                                            </div>
+                                        </div>
+                                        <div class="offset-inputs">
+                                            <div class="offset-input-group">
+                                                <label for="custom-x">X offset:</label>
+                                                <input
+                                                    id="custom-x"
+                                                    type="number"
+                                                    bind:value={preferences.customOverlayX}
+                                                    class="number-input"
+                                                    on:focus={(e) => e.currentTarget.select()}
+                                                />
+                                            </div>
+                                            <div class="offset-input-group">
+                                                <label for="custom-y">Y offset:</label>
+                                                <input
+                                                    id="custom-y"
+                                                    type="number"
+                                                    bind:value={preferences.customOverlayY}
+                                                    class="number-input"
+                                                    on:focus={(e) => e.currentTarget.select()}
+                                                />
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="preference-group">
+                                        <div class="color-options">
+                                            <div class="color-picker-container">
+                                                <ColorPickerComponent 
+                                                    label="Clear Count / Timer Color"
+                                                    bind:value={preferences.clearTextColor}
+                                                    on:change={handleClearTextColorChange}
+                                                />
+                                            </div>
+                                        </div>
+                                        <div class="reset-button-container">
+                                            <LineButton clickCallback={resetOverlayColors}>Reset Colors</LineButton>
+                                        </div>
+                                    </div>
                                 </div>
-                                <div class="offset-input-group">
-                                    <label for="custom-y">Y offset:</label>
-                                    <input
-                                        id="custom-y"
-                                        type="number"
-                                        bind:value={preferences.customOverlayY}
-                                        class="number-input"
-                                        on:focus={(e) => e.currentTarget.select()}
-                                    />
-                                </div>
-                            </div>
                             {/if}
                         </div>
                     </div>
                 {:else if activeTab === 'details'}
                     <div class="tab-panel">
-                        <div class="preference-group">
-                            <div class="preference">
-                                <StyledCheckbox
-                                    bind:checked={preferences.showTimestampInstead}
-                                    >Show timestamp instead of time elapsed</StyledCheckbox>
-                            </div>
-                            <div class="preference">
-                                <StyledCheckbox
-                                    bind:checked={preferences.useRealTime}
-                                    title="When enabled, uses 24h / 7d / 30d instead of Last Daily Reset / Last Weekly Reset / Last 4 Weekly Resets."
-                                    >Use real time instead of Bungie time</StyledCheckbox>
-                            </div>
-                            <div class="preference">
-                                <StyledCheckbox
-                                    bind:checked={preferences.displayAverageClearTimeDetails}
-                                    >Display average clear time</StyledCheckbox>
-                            </div>
-                            <div class="preference sub-setting" class:disabled={!preferences.displayAverageClearTimeDetails}>
-                                <StyledCheckbox
-                                    bind:checked={preferences.displayDifferenceIndicator}
-                                    disabled={!preferences.displayAverageClearTimeDetails}
-                                    >Display difference from average time</StyledCheckbox>
-                            </div>
-                            <div class="preference">
-                                <div class="toggle-inline">
-                                    <span class="toggle-label">Raid link provider:</span>
-                                    <SearchableSelect
-                                        bind:value={preferences.raidLinkProvider}
-                                        options={[
-                                            { value: 'raid.report', label: 'raid.report' },
-                                            { value: 'raidhub.io', label: 'raidhub.io' }
-                                        ]}
-                                        searchable={false}
-                                        width="160px"
-                                        placeholder="Select provider"
-                                    />
-                                </div>
-                            </div>
+                        <div class="sub-tab-navigation">
+                            <button 
+                                class="sub-tab-button" 
+                                class:active={detailsSubTab === 'settings'}
+                                on:click={() => detailsSubTab = 'settings'}
+                            >
+                                Settings
+                            </button>
+                            <button 
+                                class="sub-tab-button" 
+                                class:active={detailsSubTab === 'appearance'}
+                                on:click={() => detailsSubTab = 'appearance'}
+                            >
+                                Appearance
+                            </button>
                         </div>
-                    </div>
-                {:else if activeTab === 'appearance'}
-                    <div class="tab-panel">
-                        <div class="preference-group">
-                            <div class="color-options">
-                                <div class="color-picker-container">
-                                    <ColorPickerComponent 
-                                        label="Primary Color"
-                                        bind:value={preferences.primaryBackground}
-                                        on:change={handlePrimaryColorChange}
-                                    />
-                                </div>
-                                <div class="color-picker-container">
-                                    <ColorPickerComponent 
-                                        label="Secondary Color"
-                                        bind:value={preferences.secondaryBackground}
-                                        on:change={handleSecondaryColorChange}
-                                    />
-                                </div>
-                                <div class="color-picker-container">
-                                    <ColorPickerComponent 
-                                        label="Highlight Color"
-                                        bind:value={preferences.primaryHighlight}
-                                        on:change={handleHighlightColorChange}
-                                    />
-                                </div>
-                                <div class="color-picker-container">
-                                    <ColorPickerComponent 
-                                        label="Clear Count / Timer Color"
-                                        bind:value={preferences.clearTextColor}
-                                        on:change={handleClearTextColorChange}
-                                    />
-                                </div>
-                                <div class="color-picker-row">
-                                    <div class="color-picker-container">
-                                        <ColorPickerComponent 
-                                            label="Completed"
-                                            bind:value={preferences.completedColor}
-                                            on:change={handleCompletedColorChange}
-                                        />
-                                    </div>
-                                    <div class="color-picker-container">
-                                        <ColorPickerComponent 
-                                            label="Incomplete"
-                                            bind:value={preferences.incompleteColor}
-                                            on:change={handleIncompleteColorChange}
-                                        />
+                        
+                        <div class="sub-tab-content">
+                            {#if detailsSubTab === 'settings'}
+                                <div class="sub-tab-panel">
+                                    <div class="preference-group">
+                                        <div class="preference">
+                                            <StyledCheckbox
+                                                bind:checked={preferences.showTimestampInstead}
+                                                >Show timestamp instead of time elapsed</StyledCheckbox>
+                                        </div>
+                                        <div class="preference">
+                                            <StyledCheckbox
+                                                bind:checked={preferences.useRealTime}
+                                                title="When enabled, uses 24h / 7d / 30d instead of Last Daily Reset / Last Weekly Reset / Last 4 Weekly Resets."
+                                                >Use real time instead of Bungie time</StyledCheckbox>
+                                        </div>
+                                        <div class="preference">
+                                            <StyledCheckbox
+                                                bind:checked={preferences.displayAverageClearTimeDetails}
+                                                >Display average clear time</StyledCheckbox>
+                                        </div>
+                                        <div class="preference sub-setting" class:disabled={!preferences.displayAverageClearTimeDetails}>
+                                            <StyledCheckbox
+                                                bind:checked={preferences.displayDifferenceIndicator}
+                                                disabled={!preferences.displayAverageClearTimeDetails}
+                                                >Display difference from average time</StyledCheckbox>
+                                        </div>
+                                        <div class="preference">
+                                            <div class="toggle-inline">
+                                                <span class="toggle-label">Raid link provider:</span>
+                                                <SearchableSelect
+                                                    bind:value={preferences.raidLinkProvider}
+                                                    options={[
+                                                        { value: 'raid.report', label: 'raid.report' },
+                                                        { value: 'raidhub.io', label: 'raidhub.io' }
+                                                    ]}
+                                                    searchable={false}
+                                                    width="160px"
+                                                    placeholder="Select provider"
+                                                />
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
-                            </div>
-                            <div class="reset-button-container">
-                                <LineButton clickCallback={resetToDefaultColors}>Reset Colors</LineButton>
-                            </div>
+                            {:else if detailsSubTab === 'appearance'}
+                                <div class="sub-tab-panel">
+                                    <div class="preference-group">
+                                        <div class="color-options">
+                                            <div class="color-picker-container">
+                                                <ColorPickerComponent 
+                                                    label="Primary Background"
+                                                    bind:value={preferences.primaryBackground}
+                                                    on:change={handlePrimaryColorChange}
+                                                />
+                                            </div>
+                                            <div class="color-picker-container">
+                                                <ColorPickerComponent 
+                                                    label="Secondary Background"
+                                                    bind:value={preferences.secondaryBackground}
+                                                    on:change={handleSecondaryColorChange}
+                                                />
+                                            </div>
+                                            <div class="color-picker-container">
+                                                <ColorPickerComponent 
+                                                    label="Highlight Color"
+                                                    bind:value={preferences.primaryHighlight}
+                                                    on:change={handleHighlightColorChange}
+                                                />
+                                            </div>
+                                            <div class="color-picker-row">
+                                                <div class="color-picker-container">
+                                                    <ColorPickerComponent 
+                                                        label="Completed"
+                                                        bind:value={preferences.completedColor}
+                                                        on:change={handleCompletedColorChange}
+                                                    />
+                                                </div>
+                                                <div class="color-picker-container">
+                                                    <ColorPickerComponent 
+                                                        label="Incomplete"
+                                                        bind:value={preferences.incompleteColor}
+                                                        on:change={handleIncompleteColorChange}
+                                                    />
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="reset-button-container">
+                                            <LineButton clickCallback={resetDetailsColors}>Reset Colors</LineButton>
+                                        </div>
+                                    </div>
+                                </div>
+                            {/if}
                         </div>
                     </div>
                 {/if}
@@ -453,6 +537,7 @@
         display: flex;
         border-bottom: 1px solid rgba(255, 255, 255, 0.1);
         margin-bottom: 16px;
+        width: 100%;
     }
 
     .tab-button {
@@ -465,6 +550,8 @@
         font-weight: 500;
         transition: all 0.2s ease;
         border-bottom: 2px solid transparent;
+        flex: 1;
+        text-align: center;
     }
 
     .tab-button:hover {
@@ -474,6 +561,50 @@
     .tab-button.active {
         color: var(--primary-highlight);
         border-bottom-color: var(--primary-highlight);
+    }
+
+    .sub-tab-navigation {
+        display: flex;
+        margin-bottom: 16px;
+        width: 100%;
+        gap: 8px;
+    }
+
+    .sub-tab-button {
+        background: rgba(255, 255, 255, 0.02);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        color: rgba(255, 255, 255, 0.6);
+        padding: 6px 12px;
+        cursor: pointer;
+        font-size: 12px;
+        font-weight: 400;
+        transition: all 0.2s ease;
+        border-radius: 4px;
+        flex: 1;
+        text-align: center;
+        box-sizing: border-box;
+    }
+
+    .sub-tab-button:hover {
+        background: rgba(255, 255, 255, 0.05);
+        border-color: rgba(255, 255, 255, 0.15);
+        color: rgba(255, 255, 255, 0.8);
+    }
+
+    .sub-tab-button.active {
+        background: var(--primary-highlight);
+        border-color: var(--primary-highlight);
+        color: white;
+    }
+
+    .sub-tab-content {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+    }
+
+    .sub-tab-panel {
+        animation: fadeIn 0.2s ease-in;
     }
 
     .tab-content {

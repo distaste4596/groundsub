@@ -55,7 +55,7 @@ impl Default for Preferences {
             primary_background: "#12171c".to_string(),
             secondary_background: "#180f1c".to_string(),
             primary_highlight: "#74259c".to_string(),
-            clear_text_color: "#ffffff".to_string(),
+            clear_text_color: "#d2d8ed".to_string(),
             incomplete_color: "#ee3333".to_string(),
             completed_color: "#33ee33".to_string(),
             overlay_position: "left".to_string(),

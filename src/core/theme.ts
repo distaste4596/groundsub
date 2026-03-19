@@ -17,7 +17,7 @@ export async function initializeTheme() {
             primaryBackground: "#12171c",
             secondaryBackground: "#180f1c",
             primaryHighlight: "#74259c",
-            clearTextColor: "#ffffff",
+            clearTextColor: "#d2d8ed",
             incompleteColor: "#ff6b6b",
             completedColor: "#51cf66"
         });

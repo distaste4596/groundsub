@@ -74,8 +74,8 @@
         timerMode: 'default',
         raidLinkProvider: 'raid.report',
         overlayPosition: 'left',
-        customOverlayX: 0,
-        customOverlayY: 0,
+        customOverlayX: 5,
+        customOverlayY: 5,
         customStartDate: '',
         displayNowPlaying: false
     };

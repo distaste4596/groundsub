@@ -49,7 +49,7 @@ export type Preferences = {
     filterTimespan: string;
     timerMode: 'default' | 'persistent';
     raidLinkProvider: 'raid.report' | 'raidhub.io';
-    overlayPosition: 'left' | 'right' | 'bottom-right' | 'custom';
+    overlayPosition: 'left' | 'right' | 'bottom-left' | 'bottom-right';
     customOverlayX: number;
     customOverlayY: number;
     customStartDate: string;

@@ -10,6 +10,20 @@ import { THEME_UPDATE_EVENT } from "../core/theme";
 import { type TimerState, type MediaInfo } from "../core/types";
 import { GROUPED_RAIDS, GROUPED_DUNGEONS, KNOWN_RAIDS, KNOWN_DUNGEONS, EXCLUDED_ACTIVITIES } from "../core/consts";
 
+function formatAverageTime(seconds: number): string {
+    let hours = Math.floor(seconds / 3600);
+    let minutes = Math.floor((seconds % 3600) / 60);
+    let secs = Math.floor(seconds % 60);
+
+    if (hours > 0) {
+        return `<span class="time-number">${hours}</span><span class="time-unit">h</span> <span class="time-number">${minutes}</span><span class="time-unit">m</span>`;
+    } else if (minutes > 0) {
+        return `<span class="time-number">${minutes}</span><span class="time-unit">m</span> <span class="time-number">${secs}</span><span class="time-unit">s</span>`;
+    } else {
+        return `<span class="time-number">${secs}</span><span class="time-unit">s</span>`;
+    }
+}
+
 const widgetElem = document.querySelector<HTMLElement>("#widget")!;
 const loaderElem = document.querySelector<HTMLElement>("#widget-loader")!;
 const errorElem = document.querySelector<HTMLElement>("#widget-error")!;
@@ -161,6 +175,7 @@ async function init() {
     document.documentElement.style.setProperty('--secondary-background', prefs.secondaryBackground);
     document.documentElement.style.setProperty('--primary-highlight', prefs.primaryHighlight);
     document.documentElement.style.setProperty('--clear-text-color', prefs.clearTextColor || '#ffffff');
+    document.documentElement.style.setProperty('--text-color', '#ffffff');
     
     updateTimespanText();
     const initialPlayerData = await getPlayerdata();
@@ -176,6 +191,7 @@ async function init() {
         if (clearTextColor) {
             document.documentElement.style.setProperty('--clear-text-color', clearTextColor);
         }
+        document.documentElement.style.setProperty('--text-color', '#ffffff');
     });
 
     listen<MediaInfo>('media-update', (event) => {
@@ -233,7 +249,7 @@ function updateClearCountFromData(playerDataStatus: PlayerDataStatus) {
 
     if (prefs.displayAverageClearTimeOverlay) {
         const averageTime = calculateAverageClearTime(filteredActivities);
-        averageTimeTextElem.innerText = `${formatTimeWithUnit(averageTime)}`;
+        averageTimeTextElem.innerHTML = formatAverageTime(averageTime);
     }
 }
 
@@ -266,10 +282,12 @@ function checkTimerVisibility() {
     
     if (!shouldShow) {
         if (timerElem) timerElem.classList.add("hidden");
+        updateSeparators();
         return;
     }
 
     if (timerElem) timerElem.classList.remove("hidden");
+    updateSeparators();
 }
 
 function filterActivities(activities: any[], timespan: string, activityType: string) {
@@ -431,7 +449,7 @@ function refresh(playerDataStatus: PlayerDataStatus) {
 
     if (prefs.displayAverageClearTimeOverlay) {
         const averageTime = calculateAverageClearTime(filteredActivities);
-        averageTimeTextElem.innerText = `${formatTimeWithUnit(averageTime)}`;
+        averageTimeTextElem.innerHTML = formatAverageTime(averageTime);
     }
 
     let latestRaid = filteredActivities[0];
@@ -495,7 +513,7 @@ function applyPreferences(p: Preferences) {
             if (playerData && cachedPlayerData?.lastUpdate) {
                 const filteredActivities = filterActivities(cachedPlayerData.lastUpdate.activityHistory, currentTimespan, currentActivityType);
                 const averageTime = calculateAverageClearTime(filteredActivities);
-                averageTimeTextElem.innerText = `${formatTimeWithUnit(averageTime)}`;
+                averageTimeTextElem.innerHTML = formatAverageTime(averageTime);
             }
         })();
     }
@@ -518,18 +536,25 @@ function applyPreferences(p: Preferences) {
     });
 
     if (widgetElem) {
-        widgetElem.classList.remove("position-left", "position-right", "position-bottom-right", "position-custom");
-        widgetElem.style.transform = "";
+        widgetElem.classList.remove("position-left", "position-right", "position-bottom-left", "position-bottom-right");
+        
         if (p.overlayPosition === "right") {
             widgetElem.classList.add("position-right");
+        } else if (p.overlayPosition === "bottom-left") {
+            widgetElem.classList.add("position-bottom-left");
         } else if (p.overlayPosition === "bottom-right") {
             widgetElem.classList.add("position-bottom-right");
-        } else if (p.overlayPosition === "custom") {
-            widgetElem.classList.add("position-custom");
-            widgetElem.style.transform = `translate(${p.customOverlayX}px, ${p.customOverlayY}px)`;
         } else {
             widgetElem.classList.add("position-left");
         }
+
+        const offsetX = p.customOverlayX !== undefined ? p.customOverlayX : 5;
+        const offsetY = p.customOverlayY !== undefined ? p.customOverlayY : 5;
+
+        const finalOffsetX = (p.overlayPosition === "right" || p.overlayPosition === "bottom-right") ? -offsetX : offsetX;
+        const finalOffsetY = (p.overlayPosition === "bottom-left" || p.overlayPosition === "bottom-right") ? -offsetY : offsetY;
+        
+        widgetElem.style.transform = `translate(${finalOffsetX}px, ${finalOffsetY}px)`;
     }
 
     if (useRealTimeChanged) {
@@ -548,6 +573,22 @@ function applyPreferences(p: Preferences) {
 
     checkTimerVisibility();
     updateNowPlayingVisibility();
+    updateSeparators();
+}
+
+function updateSeparators() {
+    if (!widgetContentElem) return;
+    const children = widgetContentElem.querySelectorAll(':scope > div');
+    let firstVisibleFound = false;
+    children.forEach(child => {
+        if (child.classList.contains('hidden')) return;
+        if (!firstVisibleFound) {
+            child.classList.add('no-separator');
+            firstVisibleFound = true;
+        } else {
+            child.classList.remove('no-separator');
+        }
+    });
 }
 
 function updateNowPlaying(mediaInfo: MediaInfo) {
@@ -592,6 +633,7 @@ function updateNowPlayingVisibility() {
     } else {
         nowPlayingElem.classList.add("hidden");
     }
+    updateSeparators();
 }
 
 init();
