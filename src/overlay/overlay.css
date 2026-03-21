@@ -41,7 +41,7 @@
     display: flex;
     align-items: center;
     font-size: 12px;
-    font-weight: 400;
+    font-weight: 300;
     color: var(--text-color, #fff);
     padding: 4px 5px 5px 5px;
     background: rgba(0, 0, 0, 0.2);
@@ -97,25 +97,25 @@ svg {
 #average-time-text,
 #now-playing-title {
     color: var(--clear-text-color, #d2d8ed);
-    text-shadow: 0 0 2px var(--clear-text-color, #d2d8ed), 0 0 3px color-mix(in srgb, var(--clear-text-color, #d2d8ed) 1%, transparent);
+    text-shadow: 0 0 2px var(--clear-text-color, #d2d8ed), 0 0 2px color-mix(in srgb, var(--clear-text-color, #d2d8ed) 1%, transparent);
 }
 
 .time-unit {
     color: var(--text-color, #fff);
     vertical-align: baseline;
     filter: brightness(0.80);
-    text-shadow: 0 0 2px var(--text-color, #fff), 0 0 3px color-mix(in srgb, var(--text-color, #fff) 1%, transparent);
+    text-shadow: 0 0 2px var(--text-color, #fff), 0 0 2px color-mix(in srgb, var(--text-color, #fff) 1%, transparent);
 }
 
 .time-number {
     color: var(--clear-text-color, #d2d8ed);
-    text-shadow: 0 0 2px var(--clear-text-color, #d2d8ed), 0 0 3px color-mix(in srgb, var(--clear-text-color, #d2d8ed) 1%, transparent);
+    text-shadow: 0 0 2px var(--clear-text-color, #d2d8ed), 0 0 2px color-mix(in srgb, var(--clear-text-color, #d2d8ed) 1%, transparent);
 }
 
 #now-playing-artist,
 #timespan-text {
     color: var(--text-color, #fff);
-    filter: brightness(0.80);
+    filter: brightness(0.85);
 }
 
 #timespan-text {
@@ -127,11 +127,11 @@ svg {
     vertical-align: middle;
     margin-right: 4px;
 
-    filter: brightness(0.80);
+    filter: brightness(0.85);
 }
 
 #ms {
-    filter: brightness(0.80);
+    filter: brightness(0.85);
 }
 
 #timer-text {
@@ -168,7 +168,7 @@ svg {
 
 #now-playing-artist {
     font-size: 12px;
-    filter: brightness(0.80);
+    filter: brightness(0.85);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
