@@ -237,30 +237,6 @@ async fn send_data_update(handle: &AppHandle, data: PlayerDataStatus) {
     }
 }
 
-fn dedup_activities_prioritizing_completed(activities: Vec<CompletedActivity>) -> Vec<CompletedActivity> {
-    let mut deduped_activities = Vec::new();
-    let mut seen_instances = std::collections::HashSet::new();
-
-    for activity in activities {
-        let instance_key = &activity.instance_id;
-        if seen_instances.insert(instance_key.clone()) {
-            deduped_activities.push(activity);
-        } else {
-            if let Some(existing) = deduped_activities.iter_mut().find(|a| a.instance_id == *instance_key) {
-                if !existing.completed && activity.completed {
-                    *existing = activity;
-                } else if existing.completed && !activity.completed {
-                    continue;
-                } else {
-                    *existing = activity;
-                }
-            }
-        }
-    }
-
-    deduped_activities
-}
-
 async fn update_current(
     handle: &AppHandle,
     last_activity: &mut CurrentActivity,
@@ -405,7 +381,6 @@ async fn load_history_incremental(
 
             master_list.sort();
             master_list.reverse();
-            master_list = dedup_activities_prioritizing_completed(master_list);
 
             all_activities.sort();
             all_activities.reverse();
@@ -464,8 +439,6 @@ async fn load_history_incremental(
 
     master_list.sort();
     master_list.reverse();
-
-    master_list = dedup_activities_prioritizing_completed(master_list);
 
     while activities_sent < master_list.len() {
         let remaining = master_list.len() - activities_sent;
@@ -554,8 +527,6 @@ async fn update_history(
 
     past_activities.sort();
     past_activities.reverse();
-
-    past_activities = dedup_activities_prioritizing_completed(past_activities);
 
     *last_history = past_activities;
 
