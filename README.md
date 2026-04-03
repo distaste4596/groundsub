@@ -50,7 +50,9 @@ Open Services -> Windows Time -> Properties -> Startup type: Automatic -> Apply*
 - Toggle icons
 - Show average clear time
 - Display playing now music (Spotify, etc.)
-- Overlay position
+- Overlay size (Small, Medium, Large)
+- Overlay layout (Horizontal, Vertical)
+- Overlay position (Top Left, Top Right, Bottom Left, Bottom Right)
 
 **Details**
 - Show timestamps instead of elapsed time

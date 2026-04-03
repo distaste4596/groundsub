@@ -157,6 +157,7 @@ pub struct CompletedActivity {
     pub completed: bool,
     pub activity_duration: String,
     pub activity_duration_seconds: usize,
+    pub character_class: Option<String>,
 }
 
 impl PartialOrd for CompletedActivity {
@@ -228,6 +229,7 @@ impl<'de> Deserialize<'de> for CompletedActivity {
                 .display_value,
             activity_duration_seconds: activity.values.activity_duration_seconds.basic.value
                 as usize,
+            character_class: None,
         })
     }
 }

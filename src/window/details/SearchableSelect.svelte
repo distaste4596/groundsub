@@ -185,7 +185,6 @@
 <style>
     .searchable-select {
         position: relative;
-        z-index: 1;
         overflow: visible !important;
     }
 

@@ -17,7 +17,7 @@ export async function initializeTheme() {
             primaryBackground: "#12171c",
             secondaryBackground: "#180f1c",
             primaryHighlight: "#74259c",
-            clearTextColor: "#d2d8ed",
+            infoTextColor: "#d2d8ed",
             incompleteColor: "#ff6b6b",
             completedColor: "#51cf66"
         });
@@ -35,8 +35,8 @@ function updateCssVariables(prefs: ThemeVariables) {
     root.style.setProperty('--secondary-background', prefs.secondaryBackground);
     root.style.setProperty('--primary-highlight', prefs.primaryHighlight);
 
-    if (prefs.clearTextColor) {
-        root.style.setProperty('--clear-text-color', prefs.clearTextColor);
+    if (prefs.infoTextColor) {
+        root.style.setProperty('--clear-text-color', prefs.infoTextColor);
     }
 
     if (prefs.incompleteColor) {
@@ -52,7 +52,7 @@ type ThemeVariables = {
     primaryBackground: string;
     secondaryBackground: string;
     primaryHighlight: string;
-    clearTextColor?: string;
+    infoTextColor?: string;
     incompleteColor?: string;
     completedColor?: string;
 };

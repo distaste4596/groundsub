@@ -42,7 +42,7 @@ export type Preferences = {
     primaryBackground: string;
     secondaryBackground: string;
     primaryHighlight: string;
-    clearTextColor: string;
+    infoTextColor: string;
     incompleteColor: string;
     completedColor: string;
     filterActivityType: string;
@@ -52,8 +52,11 @@ export type Preferences = {
     overlayPosition: 'left' | 'right' | 'bottom-left' | 'bottom-right';
     customOverlayX: number;
     customOverlayY: number;
+    overlaySize: 'small' | 'medium' | 'large';
+    overlayLayout: 'horizontal' | 'vertical';
     customStartDate: string;
     displayNowPlaying: boolean;
+    overlayBackgroundOpacity: number;
 };
 
 export type PlayerDataStatus = {
@@ -88,6 +91,7 @@ export type CompletedActivity = {
     activityDurationSeconds: number;
     activityHash: number;
     modes: number[];
+    characterClass?: string;
 };
 
 export interface TimerState {

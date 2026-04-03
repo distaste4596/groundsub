@@ -94,66 +94,64 @@ impl PlayerDataPoller {
                 }
             };
 
-            let profile_info = {
-                let api = app_handle.state::<Api>();
-                let mut lock = api.profile_info_source.lock().await;
-
-                match lock.get(&profile).await {
-                    Ok(p) => p,
-                    Err(e) => {
-                        let mut lock = playerdata_clone.lock().await;
-                        handle_error(&mut lock, e.to_string(), &app_handle);
-                        send_data_update(&app_handle, lock.clone()).await;
-                        return;
-                    }
-                }
-            };
-
-            let mut current_activity = CurrentActivity {
-                start_date: DateTime::<Utc>::MIN_UTC,
-                activity_hash: 0,
-                activity_info: None,
-            };
-
-            let res = update_current(&app_handle, &mut current_activity, &profile).await;
-
-            {
-                let mut lock = playerdata_clone.lock().await;
-                match res {
-                    Ok(_) => {
-                        handle_success(&mut lock);
-
-                        let playerdata = PlayerData {
-                            current_activity: current_activity,
-                            activity_history: Vec::new(),
-                            profile_info,
-                        };
-
-                        lock.last_update = Some(playerdata);
-                        lock.history_loading = true;
-                        send_data_update(&app_handle, lock.clone()).await;
-                    }
-                    Err(e) => {
-                        handle_error(&mut lock, e.to_string(), &app_handle);
-                        send_data_update(&app_handle, lock.clone()).await;
-                        return;
-                    }
-                }
-            }
-
-            if let Err(e) = load_history_incremental(&app_handle, &playerdata_clone, &profile).await {
-                let mut lock = playerdata_clone.lock().await;
-                handle_error(&mut lock, e.to_string(), &app_handle);
-                lock.history_loading = false;
-                send_data_update(&app_handle, lock.clone()).await;
-            }
-
             let mut count = 0;
 
             loop {
                 tokio::time::sleep(Duration::from_secs(2)).await;
 
-                let mut last_update = playerdata_clone.lock().await.last_update.clone().unwrap();
+                if playerdata_clone.lock().await.last_update.is_none() {
+                    let startup_result = async {
+                        let profile_info = {
+                            let api = app_handle.state::<Api>();
+                            let mut lock = api.profile_info_source.lock().await;
+                            lock.get(&profile).await?
+                        };
+
+                        let mut current_activity = CurrentActivity {
+                            start_date: DateTime::<Utc>::MIN_UTC,
+                            activity_hash: 0,
+                            activity_info: None,
+                        };
+
+                        update_current(&app_handle, &mut current_activity, &profile).await?;
+
+                        let playerdata = PlayerData {
+                            current_activity,
+                            activity_history: Vec::new(),
+                            profile_info,
+                        };
+
+                        {
+                            let mut lock = playerdata_clone.lock().await;
+                            lock.last_update = Some(playerdata.clone());
+                            lock.history_loading = true;
+                            send_data_update(&app_handle, lock.clone()).await;
+                        }
+
+                        load_history_incremental(&app_handle, &playerdata_clone, &profile).await?;
+
+                        let mut lock = playerdata_clone.lock().await;
+                        handle_success(&mut lock);
+                        send_data_update(&app_handle, lock.clone()).await;
+
+                        Ok::<(), anyhow::Error>(())
+                    }.await;
+
+                    if let Err(e) = startup_result {
+                        let mut lock = playerdata_clone.lock().await;
+                        handle_error(&mut lock, e.to_string(), &app_handle);
+                        send_data_update(&app_handle, lock.clone()).await;
+                        continue;
+                    }
+
+                    count = 0;
+                    continue;
+                }
+
+                let mut last_update = match playerdata_clone.lock().await.last_update.clone() {
+                    Some(l) => l,
+                    None => continue,
+                };
 
                 let res = if count < 5 {
                     update_current(&app_handle, &mut last_update.current_activity, &profile).await
@@ -327,6 +325,8 @@ async fn load_history_incremental(
 
     let profile_info = api.profile_info_source.lock().await.get(profile).await?;
 
+    let character_classes = Api::get_character_classes(profile).await?;
+
     let mut all_activities: Vec<CompletedActivity> = Vec::new();
     let mut master_list: Vec<CompletedActivity> = Vec::new();
     let mut activities_sent = 0;
@@ -339,6 +339,7 @@ async fn load_history_incremental(
     const UI_UPDATE_INTERVAL: Duration = Duration::from_millis(1000);
 
     for (char_index, character_id) in profile_info.character_ids.iter().enumerate() {
+        let character_class = character_classes.get(character_id).cloned();
         let mut page = 0;
 
         loop {
@@ -370,7 +371,9 @@ async fn load_history_incremental(
                     *m == LOSTSECTOR_ACTIVITY_MODE ||
                     *m == STORY_ACTIVITY_MODE
                 }) && !EXCLUDED_ACTIVITY_HASHES.contains(&activity.activity_hash) {
-                    all_activities.push(activity);
+                    let mut activity_with_class = activity;
+                    activity_with_class.character_class = character_class.clone();
+                    all_activities.push(activity_with_class);
                     valid_activities_this_page += 1;
                 }
             }
@@ -476,6 +479,8 @@ async fn update_history(
 
     let profile_info = api.profile_info_source.lock().await.get(profile).await?;
 
+    let character_classes = Api::get_character_classes(profile).await?;
+
     let mut past_activities: Vec<CompletedActivity> = Vec::new();
 
     let cutoff = {
@@ -483,6 +488,7 @@ async fn update_history(
     };
 
     for character_id in profile_info.character_ids.iter() {
+        let character_class = character_classes.get(character_id).cloned();
         let mut page = 0;
 
         loop {
@@ -505,7 +511,9 @@ async fn update_history(
                     *m == LOSTSECTOR_ACTIVITY_MODE ||
                     *m == STORY_ACTIVITY_MODE
                 }) && !EXCLUDED_ACTIVITY_HASHES.contains(&activity.activity_hash) {
-                    past_activities.push(activity);
+                    let mut activity_with_class = activity;
+                    activity_with_class.character_class = character_class.clone();
+                    past_activities.push(activity_with_class);
                 }
             }
 
@@ -517,18 +525,47 @@ async fn update_history(
         }
     }
 
-    if let Some(last) = last_history.iter().max() {
-        if let Some(new) = past_activities.iter().max() {
-            if last >= new {
-                return Ok(false);
-            }
-        }
+    let has_new_data = if last_history.is_empty() {
+        !past_activities.is_empty()
+    } else {
+        let has_new_combo = past_activities.iter().any(|new| {
+            !last_history.iter().any(|old| {
+                old.instance_id == new.instance_id && old.character_class == new.character_class
+            })
+        });
+        
+        let has_newer_timestamp = if let (Some(last), Some(new)) = 
+            (last_history.iter().max(), past_activities.iter().max()) {
+            new > last
+        } else {
+            false
+        };
+        
+        has_new_combo || has_newer_timestamp
+    };
+    
+    if !has_new_data {
+        return Ok(false);
     }
 
     past_activities.sort();
     past_activities.reverse();
 
-    *last_history = past_activities;
+    let mut merged_activities: Vec<CompletedActivity> = last_history.clone();
+    for new_activity in past_activities {
+        let existing_idx = merged_activities.iter().position(|a| {
+            a.instance_id == new_activity.instance_id && a.character_class == new_activity.character_class
+        });
+        
+        if let Some(idx) = existing_idx {
+            merged_activities[idx] = new_activity;
+        } else {
+            merged_activities.push(new_activity);
+        }
+    }
+    merged_activities.sort();
+    merged_activities.reverse();
+    *last_history = merged_activities;
 
     Ok(true)
 }

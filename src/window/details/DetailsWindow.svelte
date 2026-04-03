@@ -66,18 +66,21 @@
         primaryBackground: '',
         secondaryBackground: '',
         primaryHighlight: '',
-        clearTextColor: '',
+        infoTextColor: '',
         incompleteColor: '#ff6b6b',
         completedColor: '#51cf66',
         filterActivityType: 'all',
         filterTimespan: '1',
         timerMode: 'default',
         raidLinkProvider: 'raid.report',
+        overlaySize: 'medium',
+        overlayLayout: 'horizontal',
         overlayPosition: 'left',
         customOverlayX: 5,
         customOverlayY: 5,
         customStartDate: '',
-        displayNowPlaying: false
+        displayNowPlaying: false,
+        overlayBackgroundOpacity: 0
     };
 
     let activityInfoMap: { [hash: number]: ActivityInfo } = {};
@@ -237,6 +240,57 @@
                 filtered = filtered.filter(activity => activityDate(activity.period) >= selectedDate);
             }
         }
+
+        const groupedByInstance = new Map<string, CompletedActivity[]>();
+        for (const activity of filtered) {
+            const existing = groupedByInstance.get(activity.instanceId);
+            if (existing) {
+                existing.push(activity);
+            } else {
+                groupedByInstance.set(activity.instanceId, [activity]);
+            }
+        }
+
+        const consolidated: CompletedActivity[] = [];
+        for (const [, group] of groupedByInstance) {
+            group.sort((a, b) => new Date(b.period).getTime() - new Date(a.period).getTime());
+
+            const characterClasses = new Set<string>();
+            let completingClass: string | null = null;
+            let isCompleted = false;
+
+            for (const activity of group) {
+                if (activity.characterClass) {
+                    characterClasses.add(activity.characterClass);
+                    if (activity.completed) {
+                        completingClass = activity.characterClass;
+                    }
+                }
+                if (activity.completed) {
+                    isCompleted = true;
+                }
+            }
+
+            const orderedClasses: string[] = [];
+            if (completingClass) {
+                orderedClasses.push(completingClass);
+            }
+            const classOrder = ['Warlock', 'Titan', 'Hunter'];
+            const remainingClasses = Array.from(characterClasses)
+                .filter(cls => cls !== completingClass)
+                .sort((a, b) => classOrder.indexOf(b) - classOrder.indexOf(a));
+            orderedClasses.push(...remainingClasses);
+
+            const baseActivity = { ...group[0] };
+            baseActivity.completed = isCompleted;
+            baseActivity.characterClass = orderedClasses.join(',');
+
+            consolidated.push(baseActivity);
+        }
+
+        consolidated.sort((a, b) => new Date(b.period).getTime() - new Date(a.period).getTime());
+
+        filtered = consolidated;
 
         if (type === 'all') return filtered;
 
@@ -501,7 +555,7 @@
             (e: TauriEvent<PlayerDataStatus>) => handleUpdate(e.payload)
         );
 
-        setInterval(() => (playerData = playerData), 30000);
+        setInterval(() => (playerData = playerData), 60000);
 
         showBanner =
             new URLSearchParams(window.location.search).get("welcome") == "";

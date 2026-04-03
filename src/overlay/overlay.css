@@ -33,6 +33,60 @@
     text-align: right;
 }
 
+#widget.size-small #widget-content {
+    font-size: 12px;
+    padding: 4px 5px 5px 5px;
+    gap: 4px;
+}
+
+#widget.size-small #widget-content svg {
+    width: 16px;
+    height: 16px;
+    margin-right: 4px;
+}
+
+#widget.size-small #now-playing-title,
+#widget.size-small #now-playing-artist {
+    font-size: 12px;
+    max-width: 120px;
+}
+
+#widget.size-medium #widget-content {
+    font-size: 14px;
+    padding: 5px 6px 6px 6px;
+    gap: 5px;
+}
+
+#widget.size-medium #widget-content svg {
+    width: 18px;
+    height: 18px;
+    margin-right: 5px;
+}
+
+#widget.size-medium #now-playing-title,
+#widget.size-medium #now-playing-artist {
+    font-size: 14px;
+    max-width: 140px;
+}
+
+#widget.size-large #widget-content {
+    font-size: 16px;
+    padding: 6px 7px 7px 7px;
+    gap: 6px;
+}
+
+#widget.size-large #widget-content svg {
+    width: 20px;
+    height: 20px;
+    margin-right: 6px;
+}
+
+#widget.size-large #now-playing-title,
+#widget.size-large #now-playing-artist {
+    font-size: 16px;
+    max-width: 160px;
+}
+
 .hidden {
     display: none !important;
 }
@@ -44,7 +98,7 @@
     font-weight: 300;
     color: var(--text-color, #fff);
     padding: 4px 5px 5px 5px;
-    background: rgba(0, 0, 0, 0.2);
+    background: rgba(0, 0, 0, var(--overlay-bg-opacity, 0.1));
     border-radius: 0;
     position: relative;
     gap: 4px;
@@ -115,7 +169,7 @@ svg {
 #now-playing-artist,
 #timespan-text {
     color: var(--text-color, #fff);
-    filter: brightness(0.85);
+    filter: brightness(0.90);
 }
 
 #timespan-text {
@@ -127,11 +181,11 @@ svg {
     vertical-align: middle;
     margin-right: 4px;
 
-    filter: brightness(0.85);
+    filter: brightness(0.90);
 }
 
 #ms {
-    filter: brightness(0.85);
+    filter: brightness(0.90);
 }
 
 #timer-text {
@@ -168,7 +222,7 @@ svg {
 
 #now-playing-artist {
     font-size: 12px;
-    filter: brightness(0.85);
+    filter: brightness(0.90);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -189,4 +243,27 @@ svg {
 #widget-loader.hidden,
 #widget-error.hidden {
     display: none;
+}
+
+#widget.layout-vertical #widget-content {
+    flex-direction: column;
+    align-items: stretch;
+}
+
+#widget.layout-vertical #widget-content > div {
+    width: 100%;
+    justify-content: flex-start;
+}
+
+#widget.layout-vertical #widget-content > div::before {
+    content: none !important;
+}
+
+#widget.layout-vertical.position-right #widget-content > div,
+#widget.layout-vertical.position-bottom-right #widget-content > div {
+    justify-content: flex-end;
+}
+
+#widget.layout-vertical #timespan-text {
+    margin-left: 4px;
 }

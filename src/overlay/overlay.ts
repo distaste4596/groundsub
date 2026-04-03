@@ -174,8 +174,11 @@ async function init() {
     document.documentElement.style.setProperty('--primary-background', prefs.primaryBackground);
     document.documentElement.style.setProperty('--secondary-background', prefs.secondaryBackground);
     document.documentElement.style.setProperty('--primary-highlight', prefs.primaryHighlight);
-    document.documentElement.style.setProperty('--clear-text-color', prefs.clearTextColor || '#ffffff');
+    document.documentElement.style.setProperty('--clear-text-color', prefs.infoTextColor || '#ffffff');
     document.documentElement.style.setProperty('--text-color', '#ffffff');
+    
+    const bgOpacity = prefs.overlayBackgroundOpacity !== undefined ? prefs.overlayBackgroundOpacity : 10;
+    document.documentElement.style.setProperty('--overlay-bg-opacity', (bgOpacity / 100).toString());
     
     updateTimespanText();
     const initialPlayerData = await getPlayerdata();
@@ -183,13 +186,13 @@ async function init() {
         refresh(initialPlayerData);
     }
 
-    listen<{ primaryBackground: string; secondaryBackground: string; primaryHighlight: string; clearTextColor?: string }>(THEME_UPDATE_EVENT, (event) => {
-        const { primaryBackground, secondaryBackground, primaryHighlight, clearTextColor } = event.payload;
+    listen<{ primaryBackground: string; secondaryBackground: string; primaryHighlight: string; infoTextColor?: string }>(THEME_UPDATE_EVENT, (event) => {
+        const { primaryBackground, secondaryBackground, primaryHighlight, infoTextColor } = event.payload;
         document.documentElement.style.setProperty('--primary-background', primaryBackground);
         document.documentElement.style.setProperty('--secondary-background', secondaryBackground);
         document.documentElement.style.setProperty('--primary-highlight', primaryHighlight);
-        if (clearTextColor) {
-            document.documentElement.style.setProperty('--clear-text-color', clearTextColor);
+        if (infoTextColor) {
+            document.documentElement.style.setProperty('--clear-text-color', infoTextColor);
         }
         document.documentElement.style.setProperty('--text-color', '#ffffff');
     });
@@ -555,6 +558,25 @@ function applyPreferences(p: Preferences) {
         const finalOffsetY = (p.overlayPosition === "bottom-left" || p.overlayPosition === "bottom-right") ? -offsetY : offsetY;
         
         widgetElem.style.transform = `translate(${finalOffsetX}px, ${finalOffsetY}px)`;
+
+        widgetElem.classList.remove("size-small", "size-medium", "size-large");
+        if (p.overlaySize === "small") {
+            widgetElem.classList.add("size-small");
+        } else if (p.overlaySize === "large") {
+            widgetElem.classList.add("size-large");
+        } else {
+            widgetElem.classList.add("size-medium");
+        }
+
+        widgetElem.classList.remove("layout-horizontal", "layout-vertical");
+        if (p.overlayLayout === "vertical") {
+            widgetElem.classList.add("layout-vertical");
+        } else {
+            widgetElem.classList.add("layout-horizontal");
+        }
+
+        const bgOpacity = p.overlayBackgroundOpacity !== undefined ? p.overlayBackgroundOpacity : 0;
+        document.documentElement.style.setProperty('--overlay-bg-opacity', (bgOpacity / 100).toString());
     }
 
     if (useRealTimeChanged) {

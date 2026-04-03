@@ -53,7 +53,7 @@
                 primaryBackground: originalPreferences.primaryBackground,
                 secondaryBackground: originalPreferences.secondaryBackground,
                 primaryHighlight: originalPreferences.primaryHighlight,
-                clearTextColor: originalPreferences.clearTextColor,
+                infoTextColor: originalPreferences.infoTextColor,
                 incompleteColor: originalPreferences.incompleteColor,
                 completedColor: originalPreferences.completedColor
             });
@@ -70,7 +70,7 @@
                     primaryBackground: originalPreferences.primaryBackground,
                     secondaryBackground: originalPreferences.secondaryBackground,
                     primaryHighlight: originalPreferences.primaryHighlight,
-                    clearTextColor: originalPreferences.clearTextColor,
+                    infoTextColor: originalPreferences.infoTextColor,
                     incompleteColor: originalPreferences.incompleteColor,
                     completedColor: originalPreferences.completedColor
                 });
@@ -91,7 +91,7 @@
             primaryBackground: preferences.primaryBackground,
             secondaryBackground: preferences.secondaryBackground,
             primaryHighlight: preferences.primaryHighlight,
-            clearTextColor: preferences.clearTextColor
+            infoTextColor: preferences.infoTextColor
         });
     }
 
@@ -102,7 +102,7 @@
             primaryBackground: preferences.primaryBackground,
             secondaryBackground: preferences.secondaryBackground,
             primaryHighlight: preferences.primaryHighlight,
-            clearTextColor: preferences.clearTextColor
+            infoTextColor: preferences.infoTextColor
         });
     }
 
@@ -113,18 +113,18 @@
             primaryBackground: preferences.primaryBackground,
             secondaryBackground: preferences.secondaryBackground,
             primaryHighlight: preferences.primaryHighlight,
-            clearTextColor: preferences.clearTextColor
+            infoTextColor: preferences.infoTextColor
         });
     }
 
     async function handleClearTextColorChange(event: ColorChangeEvent) {
         const color = event.detail;
-        preferences.clearTextColor = color;
+        preferences.infoTextColor = color;
         await updateTheme({
             primaryBackground: preferences.primaryBackground,
             secondaryBackground: preferences.secondaryBackground,
             primaryHighlight: preferences.primaryHighlight,
-            clearTextColor: color
+            infoTextColor: color
         });
     }
 
@@ -135,7 +135,7 @@
             primaryBackground: preferences.primaryBackground,
             secondaryBackground: preferences.secondaryBackground,
             primaryHighlight: preferences.primaryHighlight,
-            clearTextColor: preferences.clearTextColor,
+            infoTextColor: preferences.infoTextColor,
             incompleteColor: color,
             completedColor: preferences.completedColor
         });
@@ -148,7 +148,7 @@
             primaryBackground: preferences.primaryBackground,
             secondaryBackground: preferences.secondaryBackground,
             primaryHighlight: preferences.primaryHighlight,
-            clearTextColor: preferences.clearTextColor,
+            infoTextColor: preferences.infoTextColor,
             incompleteColor: preferences.incompleteColor,
             completedColor: color
         });
@@ -158,7 +158,7 @@
         preferences.primaryBackground = '#12171c';
         preferences.secondaryBackground = '#180f1c';
         preferences.primaryHighlight = '#74259c';
-        preferences.clearTextColor = '#ffffff';
+        preferences.infoTextColor = '#ffffff';
         preferences.incompleteColor = '#ff6b6b';
         preferences.completedColor = '#51cf66';
         
@@ -166,7 +166,7 @@
             primaryBackground: preferences.primaryBackground,
             secondaryBackground: preferences.secondaryBackground,
             primaryHighlight: preferences.primaryHighlight,
-            clearTextColor: preferences.clearTextColor,
+            infoTextColor: preferences.infoTextColor,
             incompleteColor: preferences.incompleteColor,
             completedColor: preferences.completedColor
         });
@@ -180,13 +180,14 @@
     }
 
     async function resetOverlayColors() {
-        preferences.clearTextColor = '#d2d8ed';
+        preferences.infoTextColor = '#d2d8ed';
+        preferences.overlayBackgroundOpacity = 0;
         
         await updateTheme({
             primaryBackground: preferences.primaryBackground,
             secondaryBackground: preferences.secondaryBackground,
             primaryHighlight: preferences.primaryHighlight,
-            clearTextColor: preferences.clearTextColor,
+            infoTextColor: preferences.infoTextColor,
             incompleteColor: preferences.incompleteColor,
             completedColor: preferences.completedColor
         });
@@ -205,7 +206,7 @@
             primaryBackground: preferences.primaryBackground,
             secondaryBackground: preferences.secondaryBackground,
             primaryHighlight: preferences.primaryHighlight,
-            clearTextColor: preferences.clearTextColor,
+            infoTextColor: preferences.infoTextColor,
             incompleteColor: preferences.incompleteColor,
             completedColor: preferences.completedColor
         });
@@ -333,7 +334,38 @@
                                 <div class="sub-tab-panel">
                                     <div class="preference-group">
                                         <div class="preference">
-                                            <div class="toggle-inline">
+                                            <div class="toggle-inline" style="justify-content: space-between; width: 100%;">
+                                                <span class="toggle-label">Overlay size:</span>
+                                                <SearchableSelect
+                                                    bind:value={preferences.overlaySize}
+                                                    options={[
+                                                        { value: 'small', label: 'Small' },
+                                                        { value: 'medium', label: 'Medium' },
+                                                        { value: 'large', label: 'Large' }
+                                                    ]}
+                                                    searchable={false}
+                                                    width="160px"
+                                                    placeholder="Select size"
+                                                />
+                                            </div>
+                                        </div>
+                                        <div class="preference">
+                                            <div class="toggle-inline" style="justify-content: space-between; width: 100%;">
+                                                <span class="toggle-label">Overlay layout:</span>
+                                                <SearchableSelect
+                                                    bind:value={preferences.overlayLayout}
+                                                    options={[
+                                                        { value: 'horizontal', label: 'Horizontal' },
+                                                        { value: 'vertical', label: 'Vertical' }
+                                                    ]}
+                                                    searchable={false}
+                                                    width="160px"
+                                                    placeholder="Select layout"
+                                                />
+                                            </div>
+                                        </div>
+                                        <div class="preference">
+                                            <div class="toggle-inline" style="justify-content: space-between; width: 100%;">
                                                 <span class="toggle-label">Overlay position:</span>
                                                 <SearchableSelect
                                                     bind:value={preferences.overlayPosition}
@@ -351,24 +383,44 @@
                                         </div>
                                         <div class="offset-inputs">
                                             <div class="offset-input-group">
-                                                <label for="custom-x">X offset:</label>
+                                                <label for="custom-x">X Offset:</label>
                                                 <input
                                                     id="custom-x"
                                                     type="number"
                                                     bind:value={preferences.customOverlayX}
                                                     class="number-input"
+                                                    style="width: 65px; text-align: center;"
                                                     on:focus={(e) => e.currentTarget.select()}
                                                 />
                                             </div>
                                             <div class="offset-input-group">
-                                                <label for="custom-y">Y offset:</label>
+                                                <label for="custom-y">Y Offset:</label>
                                                 <input
                                                     id="custom-y"
                                                     type="number"
                                                     bind:value={preferences.customOverlayY}
                                                     class="number-input"
+                                                    style="width: 65px; text-align: center;"
                                                     on:focus={(e) => e.currentTarget.select()}
                                                 />
+                                            </div>
+                                        </div>
+                                        <div class="preference">
+                                            <div class="offset-input-group" style="justify-content: space-between; width: 100%;">
+                                                <label for="bg-opacity">Background opacity:</label>
+                                                <div class="input-with-suffix">
+                                                    <input
+                                                        id="bg-opacity"
+                                                        type="number"
+                                                        min="0"
+                                                        max="100"
+                                                        bind:value={preferences.overlayBackgroundOpacity}
+                                                        class="number-input"
+                                                        style="width: 65px; padding-right: 18px; text-align: center;"
+                                                        on:focus={(e) => e.currentTarget.select()}
+                                                    />
+                                                    <span class="input-suffix">%</span>
+                                                </div>
                                             </div>
                                         </div>
                                     </div>
@@ -376,8 +428,8 @@
                                         <div class="color-options">
                                             <div class="color-picker-container">
                                                 <ColorPickerComponent 
-                                                    label="Clear Count / Timer Color"
-                                                    bind:value={preferences.clearTextColor}
+                                                    label="Important info color"
+                                                    bind:value={preferences.infoTextColor}
                                                     on:change={handleClearTextColorChange}
                                                 />
                                             </div>
@@ -436,7 +488,7 @@
                                                 >Display difference from average time</StyledCheckbox>
                                         </div>
                                         <div class="preference">
-                                            <div class="toggle-inline">
+                                            <div class="toggle-inline" style="justify-content: space-between; width: 100%;">
                                                 <span class="toggle-label">Raid link provider:</span>
                                                 <SearchableSelect
                                                     bind:value={preferences.raidLinkProvider}
@@ -531,12 +583,13 @@
         display: flex;
         flex-direction: column;
         height: 450px;
+        overflow: visible;
     }
 
     .tab-navigation {
         display: flex;
         border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-        margin-bottom: 16px;
+        margin-bottom: 10px;
         width: 100%;
     }
 
@@ -544,7 +597,7 @@
         background: none;
         border: none;
         color: rgba(255, 255, 255, 0.6);
-        padding: 12px 24px;
+        padding: 8px 24px;
         cursor: pointer;
         font-size: 14px;
         font-weight: 500;
@@ -556,6 +609,7 @@
 
     .tab-button:hover {
         color: rgba(255, 255, 255, 0.8);
+        border-bottom-color: rgba(255, 255, 255, 0.2);
     }
 
     .tab-button.active {
@@ -565,7 +619,7 @@
 
     .sub-tab-navigation {
         display: flex;
-        margin-bottom: 16px;
+        margin: 6px 0 10px;
         width: 100%;
         gap: 8px;
     }
@@ -574,7 +628,7 @@
         background: rgba(255, 255, 255, 0.02);
         border: 1px solid rgba(255, 255, 255, 0.08);
         color: rgba(255, 255, 255, 0.6);
-        padding: 6px 12px;
+        padding: 5px 12px;
         cursor: pointer;
         font-size: 12px;
         font-weight: 400;
@@ -601,25 +655,29 @@
         flex: 1;
         display: flex;
         flex-direction: column;
+        overflow: visible;
     }
 
     .sub-tab-panel {
         animation: fadeIn 0.2s ease-in;
+        overflow: visible;
     }
 
     .tab-content {
         flex: 1;
         display: flex;
         flex-direction: column;
+        overflow: visible;
     }
 
     .tab-panel {
         animation: fadeIn 0.2s ease-in;
+        overflow: visible;
     }
 
     @keyframes fadeIn {
-        from { opacity: 0; transform: translateY(4px); }
-        to { opacity: 1; transform: translateY(0); }
+        from { opacity: 0; }
+        to { opacity: 1; }
     }
 
     .preference-group {
@@ -629,12 +687,14 @@
         border-radius: 4px;
         min-height: auto;
         height: auto;
+        overflow: visible;
     }
 
     .preference {
         margin: 4px 0;
         line-height: 1.4;
         white-space: normal;
+        overflow: visible;
     }
 
     .preference.sub-setting.disabled {
@@ -651,11 +711,6 @@
     .color-picker-container {
         width: 100%;
         padding: 2px 0;
-        border-bottom: 1px solid rgba(255, 255, 255, 0.03);
-    }
-    
-    .color-picker-container:last-child {
-        border-bottom: none;
     }
 
     .color-picker-row {
@@ -666,7 +721,6 @@
 
     .color-picker-row .color-picker-container {
         flex: 1;
-        border-bottom: none;
         min-width: 0;
     }
 
@@ -688,10 +742,16 @@
         margin-top: 10px;
     }
 
+    .reset-button-container :global(button) {
+        padding: 6px 10px;
+        font-size: 12px;
+    }
+
     .toggle-inline {
         display: flex;
         align-items: center;
         gap: 5px;
+        overflow: visible;
     }
 
     .toggle-label {
@@ -704,20 +764,36 @@
 
     .offset-inputs {
         display: flex;
-        gap: 12px;
+        gap: 18px;
         align-items: center;
     }
  
     .offset-input-group {
         display: flex;
         align-items: center;
-        gap: 6px;
+        gap: 12px;
     }
  
     .offset-input-group label {
         font-weight: 400;
-        color: rgba(255, 255, 255, 0.7);
+        color: rgba(255, 255, 255, 0.9);
+        font-size: 14px;
+        white-space: nowrap;
+    }
+
+    .input-with-suffix {
+        position: relative;
+        display: inline-flex;
+        align-items: center;
+    }
+
+    .input-suffix {
+        position: absolute;
+        right: 8px;
+        color: rgba(255, 255, 255, 0.6);
         font-size: 13px;
+        pointer-events: none;
+        user-select: none;
     }
 
     .number-input {
@@ -754,6 +830,10 @@
     .number-input:focus {
         outline: none;
         border-color: var(--primary-highlight);
+    }
+
+    .preference.disabled {
+        opacity: 0.4;
     }
 
 </style>

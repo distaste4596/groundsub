@@ -168,4 +168,41 @@ impl Api {
 
         serde_json::from_value(res_val).map_err(|e| ApiError::ResponseDeserializeError(e))
     }
+
+    pub async fn get_character_classes(
+        profile: &Profile,
+    ) -> Result<HashMap<String, String>, ApiError> {
+        let res_val = make_request(BungieRequest::GetProfile {
+            membership_type: profile.account_platform,
+            membership_id: &profile.account_id,
+            component: 200,
+        })
+        .await
+        .map_err(|e| ApiError::ResponseError(e))?;
+
+        let classes = parse_character_classes(res_val)?;
+        Ok(classes)
+    }
+}
+
+fn parse_character_classes(value: serde_json::Value) -> Result<HashMap<String, String>, ApiError> {
+    let mut result = HashMap::new();
+
+    if let Some(characters) = value.get("characters").and_then(|c| c.get("data")) {
+        if let Some(char_map) = characters.as_object() {
+            for (character_id, character_data) in char_map {
+                if let Some(class_type) = character_data.get("classType").and_then(|c| c.as_u64()) {
+                    let class_name = match class_type {
+                        0 => "Titan",
+                        1 => "Hunter", 
+                        2 => "Warlock",
+                        _ => "Unknown",
+                    };
+                    result.insert(character_id.clone(), class_name.to_string());
+                }
+            }
+        }
+    }
+
+    Ok(result)
 }
