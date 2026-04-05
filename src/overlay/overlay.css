@@ -40,9 +40,9 @@
 }
 
 #widget.size-small #widget-content svg {
-    width: 16px;
-    height: 16px;
-    margin-right: 4px;
+    width: 15px;
+    height: 15px;
+    margin-right: 2px;
 }
 
 #widget.size-small #now-playing-title,
@@ -58,9 +58,9 @@
 }
 
 #widget.size-medium #widget-content svg {
-    width: 18px;
-    height: 18px;
-    margin-right: 5px;
+    width: 16px;
+    height: 16px;
+    margin-right: 2px;
 }
 
 #widget.size-medium #now-playing-title,
@@ -76,15 +76,15 @@
 }
 
 #widget.size-large #widget-content svg {
-    width: 20px;
-    height: 20px;
-    margin-right: 6px;
+    width: 17px;
+    height: 17px;
+    margin-right: 2px;
 }
 
 #widget.size-large #now-playing-title,
 #widget.size-large #now-playing-artist {
-    font-size: 16px;
-    max-width: 160px;
+    font-size: 15px;
+    max-width: 150px;
 }
 
 .hidden {
@@ -179,17 +179,21 @@ svg {
 #widget-content svg {
     fill: var(--text-color, #fff);
     vertical-align: middle;
-    margin-right: 4px;
-
+    margin-right: 2px;
+    line-height: 1;
+    position: relative;
+    top: -1px;
     filter: brightness(0.90);
 }
 
 #ms {
     filter: brightness(0.90);
+    font-size: 0.85em;
 }
 
 #timer-text {
     display: inline-flex;
+    align-items: baseline;
     min-width: 3ch;
     font-variant-numeric: tabular-nums;
 }
