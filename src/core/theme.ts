@@ -39,6 +39,12 @@ function updateCssVariables(prefs: ThemeVariables) {
         root.style.setProperty('--clear-text-color', prefs.infoTextColor);
     }
 
+    if (prefs.matchImportantTextColor && prefs.infoTextColor) {
+        root.style.setProperty('--text-color', prefs.infoTextColor);
+    } else {
+        root.style.setProperty('--text-color', '#ffffff');
+    }
+
     if (prefs.incompleteColor) {
         root.style.setProperty('--difference-incomplete-color', prefs.incompleteColor);
     }
@@ -55,4 +61,5 @@ type ThemeVariables = {
     infoTextColor?: string;
     incompleteColor?: string;
     completedColor?: string;
+    matchImportantTextColor?: boolean;
 };

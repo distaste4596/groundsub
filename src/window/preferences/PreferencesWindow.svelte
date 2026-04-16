@@ -21,6 +21,10 @@
     let overlaySubTab: 'settings' | 'appearance' = 'settings';
     let detailsSubTab: 'settings' | 'appearance' = 'settings';
 
+    $: if (preferences && preferences.matchImportantTextColor !== undefined) {
+        handleMatchImportantTextColorChange();
+    }
+
     async function init() {
         const p = await ipc.getPreferences();
         originalPreferences = {...p};
@@ -55,7 +59,8 @@
                 primaryHighlight: originalPreferences.primaryHighlight,
                 infoTextColor: originalPreferences.infoTextColor,
                 incompleteColor: originalPreferences.incompleteColor,
-                completedColor: originalPreferences.completedColor
+                completedColor: originalPreferences.completedColor,
+                matchImportantTextColor: originalPreferences.matchImportantTextColor
             });
         }
         appWindow.close();
@@ -72,7 +77,8 @@
                     primaryHighlight: originalPreferences.primaryHighlight,
                     infoTextColor: originalPreferences.infoTextColor,
                     incompleteColor: originalPreferences.incompleteColor,
-                    completedColor: originalPreferences.completedColor
+                    completedColor: originalPreferences.completedColor,
+                    matchImportantTextColor: originalPreferences.matchImportantTextColor
                 });
             }
         };
@@ -91,7 +97,8 @@
             primaryBackground: preferences.primaryBackground,
             secondaryBackground: preferences.secondaryBackground,
             primaryHighlight: preferences.primaryHighlight,
-            infoTextColor: preferences.infoTextColor
+            infoTextColor: preferences.infoTextColor,
+            matchImportantTextColor: preferences.matchImportantTextColor
         });
     }
 
@@ -102,7 +109,8 @@
             primaryBackground: preferences.primaryBackground,
             secondaryBackground: preferences.secondaryBackground,
             primaryHighlight: preferences.primaryHighlight,
-            infoTextColor: preferences.infoTextColor
+            infoTextColor: preferences.infoTextColor,
+            matchImportantTextColor: preferences.matchImportantTextColor
         });
     }
 
@@ -113,7 +121,8 @@
             primaryBackground: preferences.primaryBackground,
             secondaryBackground: preferences.secondaryBackground,
             primaryHighlight: preferences.primaryHighlight,
-            infoTextColor: preferences.infoTextColor
+            infoTextColor: preferences.infoTextColor,
+            matchImportantTextColor: preferences.matchImportantTextColor
         });
     }
 
@@ -124,7 +133,18 @@
             primaryBackground: preferences.primaryBackground,
             secondaryBackground: preferences.secondaryBackground,
             primaryHighlight: preferences.primaryHighlight,
-            infoTextColor: color
+            infoTextColor: color,
+            matchImportantTextColor: preferences.matchImportantTextColor
+        });
+    }
+
+    async function handleMatchImportantTextColorChange() {
+        await updateTheme({
+            primaryBackground: preferences.primaryBackground,
+            secondaryBackground: preferences.secondaryBackground,
+            primaryHighlight: preferences.primaryHighlight,
+            infoTextColor: preferences.infoTextColor,
+            matchImportantTextColor: preferences.matchImportantTextColor
         });
     }
 
@@ -137,7 +157,8 @@
             primaryHighlight: preferences.primaryHighlight,
             infoTextColor: preferences.infoTextColor,
             incompleteColor: color,
-            completedColor: preferences.completedColor
+            completedColor: preferences.completedColor,
+            matchImportantTextColor: preferences.matchImportantTextColor
         });
     }
 
@@ -150,7 +171,8 @@
             primaryHighlight: preferences.primaryHighlight,
             infoTextColor: preferences.infoTextColor,
             incompleteColor: preferences.incompleteColor,
-            completedColor: color
+            completedColor: color,
+            matchImportantTextColor: preferences.matchImportantTextColor
         });
     }
 
@@ -162,13 +184,16 @@
         preferences.incompleteColor = '#ff6b6b';
         preferences.completedColor = '#51cf66';
         
+        preferences.matchImportantTextColor = false;
+        
         await updateTheme({
             primaryBackground: preferences.primaryBackground,
             secondaryBackground: preferences.secondaryBackground,
             primaryHighlight: preferences.primaryHighlight,
             infoTextColor: preferences.infoTextColor,
             incompleteColor: preferences.incompleteColor,
-            completedColor: preferences.completedColor
+            completedColor: preferences.completedColor,
+            matchImportantTextColor: preferences.matchImportantTextColor
         });
         
         await handlePrimaryColorChange({ detail: '#12171c' } as ColorChangeEvent);
@@ -182,6 +207,7 @@
     async function resetOverlayColors() {
         preferences.infoTextColor = '#d2d8ed';
         preferences.overlayBackgroundOpacity = 0;
+        preferences.matchImportantTextColor = false;
         
         await updateTheme({
             primaryBackground: preferences.primaryBackground,
@@ -189,7 +215,8 @@
             primaryHighlight: preferences.primaryHighlight,
             infoTextColor: preferences.infoTextColor,
             incompleteColor: preferences.incompleteColor,
-            completedColor: preferences.completedColor
+            completedColor: preferences.completedColor,
+            matchImportantTextColor: preferences.matchImportantTextColor
         });
         
         await handleClearTextColorChange({ detail: '#d2d8ed' } as ColorChangeEvent);
@@ -208,7 +235,8 @@
             primaryHighlight: preferences.primaryHighlight,
             infoTextColor: preferences.infoTextColor,
             incompleteColor: preferences.incompleteColor,
-            completedColor: preferences.completedColor
+            completedColor: preferences.completedColor,
+            matchImportantTextColor: preferences.matchImportantTextColor
         });
         
         await handlePrimaryColorChange({ detail: '#12171c' } as ColorChangeEvent);
@@ -433,6 +461,11 @@
                                                     on:change={handleClearTextColorChange}
                                                 />
                                             </div>
+                                            <div class="preference">
+                                                <StyledCheckbox
+                                                    bind:checked={preferences.matchImportantTextColor}
+                                                >Match other text with important color</StyledCheckbox>
+                                            </div>
                                         </div>
                                         <div class="reset-button-container">
                                             <LineButton clickCallback={resetOverlayColors}>Reset Colors</LineButton>
@@ -655,24 +688,32 @@
         flex: 1;
         display: flex;
         flex-direction: column;
-        overflow: visible;
+        overflow: hidden;
+        min-height: 0;
     }
 
     .sub-tab-panel {
         animation: fadeIn 0.2s ease-in;
-        overflow: visible;
+        overflow-y: auto;
+        flex: 1;
+        min-height: 0;
     }
 
     .tab-content {
         flex: 1;
         display: flex;
         flex-direction: column;
-        overflow: visible;
+        overflow: hidden;
+        min-height: 0;
     }
 
     .tab-panel {
         animation: fadeIn 0.2s ease-in;
-        overflow: visible;
+        overflow-y: auto;
+        flex: 1;
+        min-height: 0;
+        display: flex;
+        flex-direction: column;
     }
 
     @keyframes fadeIn {

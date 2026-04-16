@@ -40,9 +40,10 @@
 }
 
 #widget.size-small #widget-content svg {
-    width: 15px;
-    height: 15px;
+    width: 13px;
+    height: 13px;
     margin-right: 2px;
+    margin-top: 2px;
 }
 
 #widget.size-small #now-playing-title,
@@ -58,9 +59,10 @@
 }
 
 #widget.size-medium #widget-content svg {
-    width: 16px;
-    height: 16px;
+    width: 15px;
+    height: 15px;
     margin-right: 2px;
+    margin-top: 2px;
 }
 
 #widget.size-medium #now-playing-title,
@@ -83,8 +85,8 @@
 
 #widget.size-large #now-playing-title,
 #widget.size-large #now-playing-artist {
-    font-size: 15px;
-    max-width: 150px;
+    font-size: 16px;
+    max-width: 160px;
 }
 
 .hidden {
@@ -127,7 +129,7 @@
     line-height: 1;
     position: relative;
     top: 1px;
-    color: var(--text-color, #fff);
+    color: #fff;
 }
 
 #widget-content > div:not(.hidden):first-of-type::before {
@@ -184,6 +186,7 @@ svg {
     position: relative;
     top: -1px;
     filter: brightness(0.90);
+    transform: scaleY(0.95);
 }
 
 #ms {

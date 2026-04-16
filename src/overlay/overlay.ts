@@ -175,7 +175,11 @@ async function init() {
     document.documentElement.style.setProperty('--secondary-background', prefs.secondaryBackground);
     document.documentElement.style.setProperty('--primary-highlight', prefs.primaryHighlight);
     document.documentElement.style.setProperty('--clear-text-color', prefs.infoTextColor || '#ffffff');
-    document.documentElement.style.setProperty('--text-color', '#ffffff');
+    if (prefs.matchImportantTextColor && prefs.infoTextColor) {
+        document.documentElement.style.setProperty('--text-color', prefs.infoTextColor);
+    } else {
+        document.documentElement.style.setProperty('--text-color', '#ffffff');
+    }
     
     const bgOpacity = prefs.overlayBackgroundOpacity !== undefined ? prefs.overlayBackgroundOpacity : 10;
     document.documentElement.style.setProperty('--overlay-bg-opacity', (bgOpacity / 100).toString());
@@ -186,15 +190,19 @@ async function init() {
         refresh(initialPlayerData);
     }
 
-    listen<{ primaryBackground: string; secondaryBackground: string; primaryHighlight: string; infoTextColor?: string }>(THEME_UPDATE_EVENT, (event) => {
-        const { primaryBackground, secondaryBackground, primaryHighlight, infoTextColor } = event.payload;
+    listen<{ primaryBackground: string; secondaryBackground: string; primaryHighlight: string; infoTextColor?: string; matchImportantTextColor?: boolean }>(THEME_UPDATE_EVENT, (event) => {
+        const { primaryBackground, secondaryBackground, primaryHighlight, infoTextColor, matchImportantTextColor } = event.payload;
         document.documentElement.style.setProperty('--primary-background', primaryBackground);
         document.documentElement.style.setProperty('--secondary-background', secondaryBackground);
         document.documentElement.style.setProperty('--primary-highlight', primaryHighlight);
         if (infoTextColor) {
             document.documentElement.style.setProperty('--clear-text-color', infoTextColor);
         }
-        document.documentElement.style.setProperty('--text-color', '#ffffff');
+        if (matchImportantTextColor && infoTextColor) {
+            document.documentElement.style.setProperty('--text-color', infoTextColor);
+        } else {
+            document.documentElement.style.setProperty('--text-color', '#ffffff');
+        }
     });
 
     listen<MediaInfo>('media-update', (event) => {

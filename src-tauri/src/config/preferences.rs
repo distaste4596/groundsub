@@ -35,6 +35,7 @@ pub struct Preferences {
     pub custom_start_date: String,
     pub display_now_playing: bool,
     pub overlay_background_opacity: i32,
+    pub match_important_text_color: bool,
 }
 
 impl Default for Preferences {
@@ -69,6 +70,7 @@ impl Default for Preferences {
             custom_start_date: String::new(),
             display_now_playing: false,
             overlay_background_opacity: 0,
+            match_important_text_color: false,
         }
     }
 }

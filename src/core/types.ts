@@ -57,6 +57,7 @@ export type Preferences = {
     customStartDate: string;
     displayNowPlaying: boolean;
     overlayBackgroundOpacity: number;
+    matchImportantTextColor: boolean;
 };
 
 export type PlayerDataStatus = {
