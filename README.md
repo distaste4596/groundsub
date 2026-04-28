@@ -1,7 +1,5 @@
 ## About
 
-For support or questions, contact **xxccss** on Discord.
-
 groundsub is a modified version of  
 https://github.com/dessh/threepole
 
