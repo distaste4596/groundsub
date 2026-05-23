@@ -45,6 +45,10 @@ pub enum BungieResponseError {
         err: serde_json::Error,
         status_code: u16,
     },
+    HttpError {
+        status_code: u16,
+        body: String,
+    },
     BungieError {
         message: String,
         error_code: isize,
@@ -59,6 +63,17 @@ impl Display for BungieResponseError {
         match self {
             BungieResponseError::DeserializeError { err, status_code } => {
                 write!(f, "Failed to parse response (code {status_code}): {err}")
+            }
+            BungieResponseError::HttpError { status_code, body: _ } => {
+                let detail = match status_code {
+                    522 => "Connection timed out (Bungie servers unreachable)",
+                    502 => "Bad gateway",
+                    503 => "Service unavailable",
+                    504 => "Gateway timeout",
+                    429 => "Rate limited",
+                    _ => "Unexpected HTTP error",
+                };
+                write!(f, "HTTP {status_code}: {detail}")
             }
             BungieResponseError::BungieError {
                 message,
@@ -115,6 +130,13 @@ pub async fn make_request(req: BungieRequest<'_>) -> Result<Value, BungieRespons
         .text()
         .await
         .map_err(|e| BungieResponseError::NetworkError(e.into()))?;
+
+    if !(200..300).contains(&status_code) {
+        return Err(BungieResponseError::HttpError {
+            status_code,
+            body: text,
+        });
+    }
 
     let status: BungieResponseStatus = match serde_json::from_str(&text) {
         Ok(s) => s,
