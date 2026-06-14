@@ -29,6 +29,9 @@ export const KNOWN_RAIDS = {
     4129614942: "Salvation's Edge (Master)",
     1044919065: "The Desert Perpetual",
     3817322389: "The Desert Perpetual (Epic)",
+    1516551982: "Pantheon: Calus Resplendent",
+    2530656885: "Pantheon: Morgeth Surpassing",
+    747671496: "Pantheon: Insurrection Prime Revolutionary",
 };
 
 export const KNOWN_DUNGEONS = {
@@ -66,6 +69,10 @@ export const ACTIVITY_ALIASES = {
     "wr": "warlord-s-ruin",
     "vh": "vesper-s-host",
     "sd": "the-sundered-doctrine",
+
+    "cr": "pantheon-calus-resplendent",
+    "ms": "pantheon-morgeth-surpassing",
+    "ipr": "pantheon-insurrection-prime-revolutionary",
 };
 
 function generateGroupedActivities(activities: Record<number, string>) {
